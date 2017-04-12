@@ -5,6 +5,20 @@ public class dbOp
     public OperationType op; //indicates the operation. Different values listed in comment table below.
     public String table; //indicates what table the oepration acts upon, if any. Null if not applicable.
     public String value; //A string representation of the value/areacode/(t) used by the application. Null if N/A.
+    
+    dbOp(int tID, short type, OperationType op, String table, String value)
+    {
+        this.tID = tID;
+        this.type = type;
+        this.op = op;
+        this.table = table;
+        this.value = value;
+    }
+    
+    public String toString()
+    {
+        return "TID:\t"+tID+"\nTYPE:\t"+type+"\nOP:\t"+op+"\nTABLE:\t"+table+"\nVALUE:\t"+value+"\n";
+    }
 }
 
 /*

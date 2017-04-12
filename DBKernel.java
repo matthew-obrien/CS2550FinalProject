@@ -9,8 +9,6 @@ public abstract class DBKernel {
 
     protected Thread t;
     protected String threadName;
-    public LinkedBlockingQueue<dbOp> operationsEntryQueue;
-
     
     protected ArrayList<File> findOnlyFiles(String sDir) {
         File folder = new File(sDir);

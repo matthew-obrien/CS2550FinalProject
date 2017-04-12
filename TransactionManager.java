@@ -7,12 +7,13 @@ import java.util.concurrent.*;
 
 class TransactionManager extends DBKernel implements Runnable {
 
+    LinkedBlockingQueue<dbOp> tmsc;
     ConcurrentSkipListSet<Integer> blSet;
     private String scriptsDir;
 
     TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir) {
         threadName = name;
-        operationsEntryQueue = q1;
+        tmsc = q1;
         blSet = blSetIn;
         scriptsDir = dir;
     }
@@ -20,6 +21,14 @@ class TransactionManager extends DBKernel implements Runnable {
     @Override
     public void run() {
         //code for TM goes here.
+        try {
+            dbOp oper = new dbOp(1,(short)1,OperationType.Begin,"y","x");
+            System.out.println("\nTM has read the following operation:");
+            System.out.println(oper);
+            tmsc.add(oper);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void start() {
