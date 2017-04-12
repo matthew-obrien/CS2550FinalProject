@@ -7,11 +7,15 @@ class TransactionManager implements Runnable
     private Thread t;
     private String threadName;
     LinkedBlockingQueue<dbOp> tmsc;
+    ConcurrentSkipListSet<Integer> blSet;
+    String scriptsDir;
 
-	TransactionManager(String name, LinkedBlockingQueue<dbOp> q1) 
+	TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir) 
     {
 		threadName = name;
         tmsc = q1;
+        blSet = blSetIn;
+        scriptsDir = dir;
 	}
 	
     public void run() 

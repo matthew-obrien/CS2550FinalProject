@@ -1,5 +1,3 @@
-
-
 public class dbOp
 {
     int tID; //transaction or process ID. Strictly increasing starting at 0 with the first transaction.
