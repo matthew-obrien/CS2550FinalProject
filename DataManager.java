@@ -3,8 +3,8 @@ import java.util.concurrent.*;
 
 class DataManager extends DBKernel implements Runnable {
 
-    LinkedBlockingQueue<dbOp> tmsc;
     LinkedBlockingQueue<dbOp> scdm;
+    LinkedBlockingQueue<dbOp> tmsc;
     ConcurrentSkipListSet<Integer> blSet;
     private String filesDir;
     private int bSize;

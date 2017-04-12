@@ -27,7 +27,6 @@ public class myPTA
             return;
         }
         
-        
         //Here, initialize all shared data structures
         LinkedBlockingQueue<dbOp> tmsc = new LinkedBlockingQueue<>(); //queue for operations being passed from the tm to the sc. Sometimes used by DM (for spontaneous aborts).
         LinkedBlockingQueue<dbOp> scdm = new LinkedBlockingQueue<>(); //queue for operations being passed from sc to dm.
@@ -37,11 +36,11 @@ public class myPTA
         TransactionManager tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir);
         Scheduler sc = new Scheduler("SC", tmsc, scdm);
         DataManager dm = new DataManager("DM", tmsc, scdm, blockingSet,filesDir,bufferSize);
+        
         tm.start();
         sc.start();
         dm.start();
     }
-    
 }
 
 /*

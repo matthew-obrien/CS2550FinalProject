@@ -1,6 +1,7 @@
 public enum OperationType {
 
     Begin("B"),
+    Read("R"),
     Write("W"),
     MRead("M"),
     Commit("C"),
@@ -24,6 +25,8 @@ public enum OperationType {
         switch (opCode) {
             case 'B':
                 return OperationType.Begin;
+            case 'R':
+                return OperationType.Read;
             case 'W':
                 return OperationType.Write;
             case 'M':
@@ -34,9 +37,8 @@ public enum OperationType {
                 return OperationType.Abort;
             case 'D':
                 return OperationType.Delete;
-
             default:
-                throw new Exception("Unsupported Processor Operation");
+                throw new Exception("Unsupported Operation");
         }
     }
 }

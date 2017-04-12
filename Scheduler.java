@@ -3,8 +3,8 @@ import java.util.concurrent.*;
 
 class Scheduler extends DBKernel implements Runnable {
 
-    LinkedBlockingQueue<dbOp> tmsc;
-    LinkedBlockingQueue<dbOp> scdm;
+    final private LinkedBlockingQueue<dbOp> tmsc;
+    final private LinkedBlockingQueue<dbOp> scdm;
 
     Scheduler(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2) {
         threadName = name;
@@ -14,7 +14,6 @@ class Scheduler extends DBKernel implements Runnable {
 
     @Override
     public void run() {
-        //code for SC goes here.
         try {
             dbOp oper = tmsc.take();
             System.out.println("\nSC has received the following operation:");

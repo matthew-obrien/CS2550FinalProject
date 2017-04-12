@@ -6,6 +6,8 @@ public class dbOp
     public String table; //indicates what table the oepration acts upon, if any. Null if not applicable.
     public String value; //A string representation of the value/areacode/(t) used by the application. Null if N/A.
     
+    dbOp(){}
+    
     dbOp(int tID, short type, OperationType op, String table, String value)
     {
         this.tID = tID;
