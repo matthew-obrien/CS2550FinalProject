@@ -1,10 +1,10 @@
 public class dbOp
 {
-    int tID; //transaction or process ID. Strictly increasing starting at 0 with the first transaction.
-    int type; //0 or 1. O indicates a process, 1 indicates a transaction.
-    int op; //indicates the operation. Different values listed in comment table below.
-    String table; //indicates what table the oepration acts upon, if any. Null if not applicable.
-    String value; //A string representation of the value/areacode/(t) used by the application. Null if N/A.
+    public int tID; //transaction or process ID. Strictly increasing starting at 0 with the first transaction.
+    public short type; //0 or 1. O indicates a process, 1 indicates a transaction.
+    public OperationType op; //indicates the operation. Different values listed in comment table below.
+    public String table; //indicates what table the oepration acts upon, if any. Null if not applicable.
+    public String value; //A string representation of the value/areacode/(t) used by the application. Null if N/A.
 }
 
 /*

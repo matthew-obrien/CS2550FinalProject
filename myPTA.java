@@ -1,11 +1,7 @@
-import java.util.*;
-import java.lang.Thread;
 import java.util.concurrent.*;
 
 public class myPTA
 {
-
-    
     public static void main (String[] args)
     {
         //First, verify correct number of arguments
@@ -33,9 +29,9 @@ public class myPTA
         
         
         //Here, initialize all shared data structures
-        LinkedBlockingQueue<dbOp> tmsc = new LinkedBlockingQueue<dbOp>(); //queue for operations being passed from the tm to the sc. Sometimes used by DM (for spontaneous aborts).
-        LinkedBlockingQueue<dbOp> scdm = new LinkedBlockingQueue<dbOp>(); //queue for operations being passed from sc to dm.
-        ConcurrentSkipListSet<Integer> blockingSet = new ConcurrentSkipListSet<Integer>(); //description in Appendix (1)
+        LinkedBlockingQueue<dbOp> tmsc = new LinkedBlockingQueue<>(); //queue for operations being passed from the tm to the sc. Sometimes used by DM (for spontaneous aborts).
+        LinkedBlockingQueue<dbOp> scdm = new LinkedBlockingQueue<>(); //queue for operations being passed from sc to dm.
+        ConcurrentSkipListSet<Integer> blockingSet = new ConcurrentSkipListSet<>(); //description in Appendix (1)
         
         //now intialize and start the threads
         TransactionManager tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir);
