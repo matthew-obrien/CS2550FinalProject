@@ -22,9 +22,15 @@ class DataManager extends DBKernel implements Runnable {
     public void run() {
         //code for DM goes here.
         try {
-            dbOp oper = scdm.take();
-            System.out.println("\nDM has received the following operation:");
-            System.out.println(oper);
+            while(true)
+            {
+                dbOp oper = scdm.take();
+                if(oper.op == OperationType.Begin) System.out.println("\nDM has received the following operation:\n"+oper);
+                if(oper.op == null)
+                {
+                    break;
+                }
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

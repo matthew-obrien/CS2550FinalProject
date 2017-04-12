@@ -1,14 +1,15 @@
 import java.util.concurrent.*;
+import java.util.Date;
 
 public class myPTA
 {
     public static void main (String[] args)
     {
         //First, verify correct number of arguments
-        if(args.length != 3)
+        if(args.length != 3 && args.length != 4)
         {
             System.out.println("Incorrect number of args.");
-            System.out.println("Use form: \"java myPTA scriptDirectory tablesDirectory bufferSize\" where bufferSize is in number of pages.");
+            System.out.println("Use one of: \n\tjava myPTA scriptDirectory tablesDirectory bufferSize\n\tjava myPTA scriptDirectory tablesDirectory bufferSize seed");
             return;
         }
         //We can just grab the directory paths.
@@ -23,8 +24,22 @@ public class myPTA
         catch (NumberFormatException e)
         {
             System.out.println("Given bufferSize is NaN.");
-            System.out.println("Use form: \"java myPTA scriptDirectory tablesDirectory bufferSize\" where bufferSize is in number of pages.");
+            System.out.println("Use one of: \n\tjava myPTA scriptDirectory tablesDirectory bufferSize\n\tjava myPTA scriptDirectory tablesDirectory bufferSize seed");
             return;
+        }
+        Long seed = null;
+        if(args.length == 4)
+        {
+            try
+            {
+                seed = Long.parseLong(args[3]);
+            } 
+            catch (NumberFormatException e)
+            {
+                System.out.println("Given seed is NaN.");
+                System.out.println("Use one of: \n\tjava myPTA scriptDirectory tablesDirectory bufferSize\n\tjava myPTA scriptDirectory tablesDirectory bufferSize seed");
+                return;
+            }
         }
         
         //Here, initialize all shared data structures
@@ -33,7 +48,15 @@ public class myPTA
         ConcurrentSkipListSet<Integer> blockingSet = new ConcurrentSkipListSet<>(); //description in Appendix (1)
         
         //now intialize and start the threads
-        TransactionManager tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir);
+        TransactionManager tm;
+        if(seed == null)
+        {
+            tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir);            
+        }
+        else
+        {
+            tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir, seed);            
+        }
         Scheduler sc = new Scheduler("SC", tmsc, scdm);
         DataManager dm = new DataManager("DM", tmsc, scdm, blockingSet,filesDir,bufferSize);
         

@@ -15,10 +15,16 @@ class Scheduler extends DBKernel implements Runnable {
     @Override
     public void run() {
         try {
-            dbOp oper = tmsc.take();
-            System.out.println("\nSC has received the following operation:");
-            System.out.println(oper);
-            scdm.add(oper);
+            while(true)
+            {
+                dbOp oper = tmsc.take();
+                //System.out.println("\nSC has received the following operation:\n"+oper);
+                scdm.add(oper);
+                if(oper.op == null)
+                {
+                    break;
+                }
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
