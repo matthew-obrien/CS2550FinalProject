@@ -1,0 +1,24 @@
+
+
+public class dbOp
+{
+    int tID; //transaction or process ID. Strictly increasing starting at 0 with the first transaction.
+    int type; //0 or 1. O indicates a process, 1 indicates a transaction.
+    int op; //indicates the operation. Different values listed in comment table below.
+    String table; //indicates what table the oepration acts upon, if any. Null if not applicable.
+    String value; //A string representation of the value/areacode/(t) used by the application. Null if N/A.
+}
+
+/*
+||APPENDIX||
+
+|OPERATION VALUE TABLE|
+0:B - Of form "B EMode". Begins a transaction/process of type EMode.
+1:C - Of form "C". Commits the current transaction/process.
+2:A - Of form "A". Aborts the current transaction/process (for processes, this is identical to commit).
+3:R - Of form "R table value". Reads value from table.
+4:M - Of form "M table areacode". Reads all values with matching area-code from table.
+5:W - Of form "W table (t)". Writes tuple t to table W. If the primary key in t is already in the table, the existing tuple is overwritten with the new one.
+6:D - Of form "D table". Deletes table from the database.
+
+*/
