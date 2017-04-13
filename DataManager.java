@@ -25,7 +25,8 @@ class DataManager extends DBKernel implements Runnable {
             while(true)
             {
                 dbOp oper = scdm.take();
-                if(oper.op == OperationType.Begin) System.out.println("\nDM has received the following operation:\n"+oper);
+                /*if(oper.op == OperationType.Begin)*/ System.out.println("\nDM has received the following operation:\n"+oper);
+                blSet.remove(oper.tID);
                 if(oper.op == null)
                 {
                     break;

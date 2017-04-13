@@ -9,6 +9,7 @@ import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.Arrays;
 
 class TransactionManager extends DBKernel implements Runnable {
 
@@ -20,6 +21,7 @@ class TransactionManager extends DBKernel implements Runnable {
     final private Random random;
     private Integer currTID = 0;
     private Short currRequestType = 0;
+    private int[] tIDMappings;
 
     TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir) {
         threadName = name;
@@ -50,8 +52,15 @@ class TransactionManager extends DBKernel implements Runnable {
                 {
                     //random implementation
                     i = random.nextInt(loadedScripts.size());
+                    while(blSet.contains(tIDMappings[i]))
+                    {
+                        i = (i+1)%loadedScripts.size();
+                    }
                     LinkedList<dbOp> opers = loadedScripts.get(i);
                     dbOp oper = opers.poll();
+                    blSet.add(oper.tID);
+                    tIDMappings[i] = oper.tID;
+                    System.out.println("\nTM has sent the following operation:\n"+oper);
                     tmsc.add(oper);
                     if(opers.isEmpty())
                     {
@@ -61,8 +70,15 @@ class TransactionManager extends DBKernel implements Runnable {
                 else
                 {
                     //round robin
+                    while(blSet.contains(tIDMappings[i]))
+                    {
+                        i = (i+1)%loadedScripts.size();
+                    }
                     LinkedList<dbOp> opers = loadedScripts.get(i);
                     dbOp oper = opers.poll();
+                    blSet.add(oper.tID);
+                    tIDMappings[i] = oper.tID;
+                    System.out.println("\nTM has sent the following operation:\n"+oper);
                     tmsc.add(oper);
                     if(opers.isEmpty())
                     {
@@ -95,6 +111,8 @@ class TransactionManager extends DBKernel implements Runnable {
         System.out.println("Starting script files load procedure");
 
         ArrayList<File> listOfFiles = findOnlyFiles(scriptsDir);
+        tIDMappings = new int[listOfFiles.size()]; //intialize the mapping array
+        Arrays.fill(tIDMappings, -1);               //and fill it with -1s to start
         //Integer currentTransactionID = 0;
         for (File file : listOfFiles) {
             try (BufferedReader br = new BufferedReader(new FileReader(file))) {
