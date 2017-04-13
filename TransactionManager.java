@@ -5,7 +5,6 @@ import java.io.FileReader;
 import java.util.Random;
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,7 +15,7 @@ class TransactionManager extends DBKernel implements Runnable {
     final private LinkedBlockingQueue<dbOp> tmsc;
     final private ConcurrentSkipListSet<Integer> blSet;
     final private String scriptsDir;
-    final private ArrayList<LinkedList<dbOp>> loadedScripts = new ArrayList<LinkedList<dbOp>>();
+    final private ArrayList<LinkedList<dbOp>> loadedScripts = new ArrayList<>();
     final private boolean rand;
     final private Random random;
     private Integer currTID = 0;
@@ -46,7 +45,7 @@ class TransactionManager extends DBKernel implements Runnable {
         try {
             loadScripts();
             int i = 0; //initialize it now. Doesn't matter for random, but round robin needs to persist.
-            while(loadedScripts.size() != 0)
+            while(!loadedScripts.isEmpty())
             { 
                 if(rand)
                 {
@@ -113,23 +112,16 @@ class TransactionManager extends DBKernel implements Runnable {
         ArrayList<File> listOfFiles = findOnlyFiles(scriptsDir);
         tIDMappings = new int[listOfFiles.size()]; //intialize the mapping array
         Arrays.fill(tIDMappings, -1);               //and fill it with -1s to start
-        //Integer currentTransactionID = 0;
         for (File file : listOfFiles) {
             try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-
                 String line = br.readLine();
-
-                
-                //Short transcationType = 0;
-
-                LinkedList<dbOp> fileOperations = new LinkedList<dbOp>();
+                LinkedList<dbOp> fileOperations = new LinkedList<>();
 
                 while (line != null) {
                     dbOp operation = operationParser(line);
                     fileOperations.add(operation);
                     line = br.readLine();
                 }
-
                 loadedScripts.add(fileOperations);
             }
         }

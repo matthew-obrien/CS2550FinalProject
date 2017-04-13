@@ -15,6 +15,8 @@ class Scheduler extends DBKernel implements Runnable {
     @Override
     public void run() {
         try {
+            //Carefull with the race condition here. If th sc get something and nothing new is added
+            //it will break out of the loop. Maybe a external control thread initiated in main?
             while(true)
             {
                 dbOp oper = tmsc.take();

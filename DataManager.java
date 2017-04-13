@@ -3,11 +3,11 @@ import java.util.concurrent.*;
 
 class DataManager extends DBKernel implements Runnable {
 
-    LinkedBlockingQueue<dbOp> scdm;
-    LinkedBlockingQueue<dbOp> tmsc;
-    ConcurrentSkipListSet<Integer> blSet;
-    private String filesDir;
-    private int bSize;
+    final private LinkedBlockingQueue<dbOp> scdm;
+    final private LinkedBlockingQueue<dbOp> tmsc;
+    final private ConcurrentSkipListSet<Integer> blSet;
+    final private String filesDir;
+    final private int bSize;
 
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size) {
         threadName = name;
