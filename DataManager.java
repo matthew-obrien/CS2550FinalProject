@@ -1,4 +1,8 @@
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.concurrent.*;
 
 class DataManager extends DBKernel implements Runnable {
@@ -44,4 +48,37 @@ class DataManager extends DBKernel implements Runnable {
             t.start();
         }
     }
+    /*
+     * Load the table script into memory
+     */
+    void loadTableIntoMemory(String tableFilePath){ 
+    	try {
+    		//open the table script file
+        	FileInputStream fstream = new FileInputStream(tableFilePath);
+        	BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
+
+        	String tupeLine;
+        	//read tuples one by one
+			while ((tableFilePath = br.readLine()) != null)   {
+			  System.out.println (tableFilePath);
+			}
+			//Close the script stream
+			br.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+    	
+    }
+    /*
+     * Table schema
+     */
+    class Client{
+    	//ID: 4-byte integer (Primary Key)
+    	//ClientName: 16-byte long string
+    	//Phone: 12-byte long string
+    	int ID;
+    	String ClientName;
+    	String Phone;
+    }
+
 }
