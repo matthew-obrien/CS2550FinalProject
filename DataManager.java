@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.concurrent.*;
 
 class DataManager extends DBKernel implements Runnable {
@@ -92,12 +93,13 @@ class DataManager extends DBKernel implements Runnable {
 			for(int i =0;i<=idCounter;i++){
 				tableInMemory.add(null);
 			}
+			
 			for(Client client: temp){
 				tableInMemory.set(client.ID, client);
 				//add it to the hashing object
 				hashingObject.insert(client.ID, client.ID);
 			}
-			//System.out.println ("---"+tableInMemory.size());
+			
 		} catch (FileNotFoundException e) {
 			System.err.println("Table script does not exist. Please enter a valid script path.");
 			e.printStackTrace();
@@ -156,27 +158,27 @@ class Client{
  * This class could be written in a single individual file, at this moment, we define it here temporarily.
  */
 class HashIndex{
-	int MAXIMUM_BUCKET_SIZE = 6;
-	int HASH_BASE = 16;
-	private ConcurrentHashMap<Integer,ConcurrentHashMap<Integer,Integer>> indexContainer;
+	private int MAXIMUM_BUCKET_SIZE = 6;
+	private int HASH_BASE = 16;
+	private  HashMap<Integer,HashMap<Integer,Integer>> indexContainer;
 	//store all the overflowed indices
-	private ConcurrentHashMap<Integer,Integer> overflowBucket ; 
+	private HashMap<Integer,Integer> overflowBucket ; 
 	public HashIndex(){
-		indexContainer = new ConcurrentHashMap<Integer,ConcurrentHashMap<Integer,Integer>>();
-		overflowBucket = new ConcurrentHashMap<Integer,Integer>();
+		indexContainer = new HashMap<Integer,HashMap<Integer,Integer>>();
+		overflowBucket = new HashMap<Integer,Integer>();
 	}
 	public void insert(int ID, int index){
 		//hash function
 		int key = hashFunction(ID);
-		if(indexContainer.contains(key)){
-			if(indexContainer.get(key).size()>=MAXIMUM_BUCKET_SIZE){
+		if(indexContainer.containsKey(key)){
+			if(indexContainer.get(key).size()>MAXIMUM_BUCKET_SIZE){
 				//if the bucket's size surpass the bucket limit, then put it in the overflow bucket
 				overflowBucket.put(ID, index);
 			}else{
 				indexContainer.get(key).put(ID, index);
 			}
 		}else{
-			ConcurrentHashMap<Integer,Integer> bucket = new ConcurrentHashMap<Integer,Integer>();
+			HashMap<Integer,Integer> bucket = new HashMap<Integer,Integer>();
 			bucket.put(ID, index);
 			indexContainer.put(key, bucket);
 		}
@@ -187,18 +189,23 @@ class HashIndex{
 	public int getIndex(int ID){
 		int index = 0;
 		int key = hashFunction(ID);
-		if(indexContainer.contains(key) && indexContainer.get(key).contains(ID)){
-			index = indexContainer.get(key).get(ID);
-		}else{
-			if(overflowBucket.contains(ID)){
-				index = overflowBucket.get(ID);
+		
+		if(indexContainer.containsKey(key)){
+			if(indexContainer.get(key).containsKey(ID)){
+				index = indexContainer.get(key).get(ID);
 			}else{
-				System.err.println("Hashing structure does not contain the input client ID -> "+ID);
+				if(overflowBucket.containsKey(ID)){
+					index = overflowBucket.get(ID);
+				}else{
+					System.err.println("Hashing structure does not contain the input client ID -> "+ID);
+				}
 			}
+		}else{
+			System.err.println("Hashing structure does not contain the input client ID -> "+ID);
 		}
 		return index;
 	}
-	int hashFunction(int ID){
+	private int hashFunction(int ID){
 		return ID%HASH_BASE;
 	}
 }
