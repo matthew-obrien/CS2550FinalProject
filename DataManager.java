@@ -157,6 +157,7 @@ class Client{
  */
 class HashIndex{
 	int MAXIMUM_BUCKET_SIZE = 6;
+	int HASH_BASE = 16;
 	private ConcurrentHashMap<Integer,ConcurrentHashMap<Integer,Integer>> indexContainer;
 	//store all the overflowed indices
 	private ConcurrentHashMap<Integer,Integer> overflowBucket ; 
@@ -166,7 +167,7 @@ class HashIndex{
 	}
 	public void insert(int ID, int index){
 		//hash function
-		int key = ID%16;
+		int key = hashFunction(ID);
 		if(indexContainer.contains(key)){
 			if(indexContainer.get(key).size()>=MAXIMUM_BUCKET_SIZE){
 				//if the bucket's size surpass the bucket limit, then put it in the overflow bucket
@@ -185,7 +186,7 @@ class HashIndex{
 	 */
 	public int getIndex(int ID){
 		int index = 0;
-		int key = ID%16;
+		int key = hashFunction(ID);
 		if(indexContainer.contains(key) && indexContainer.get(key).contains(ID)){
 			index = indexContainer.get(key).get(ID);
 		}else{
@@ -196,5 +197,8 @@ class HashIndex{
 			}
 		}
 		return index;
+	}
+	int hashFunction(int ID){
+		return ID%HASH_BASE;
 	}
 }
