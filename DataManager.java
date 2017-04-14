@@ -1,6 +1,7 @@
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -14,9 +15,10 @@ class DataManager extends DBKernel implements Runnable {
     final private String filesDir;
     final private int bSize;
     //data structure that stores testing table content
-    private static ConcurrentHashMap<Integer,Client> tableInMemory;
+    private CopyOnWriteArrayList<Client> tableInMemory;
     //data buffer object, a hash map with key being ID and value being tuple
-    private static ConcurrentHashMap<Integer,Client> dataBuffer;
+    private ConcurrentHashMap<Integer,Client> dataBuffer;
+    private HashIndex hashingObject;
 
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size) {
         threadName = name;
@@ -25,7 +27,9 @@ class DataManager extends DBKernel implements Runnable {
         blSet = blSetIn;
         filesDir = dir;
         bSize = size;
-        tableInMemory = new ConcurrentHashMap<Integer,Client>();
+        tableInMemory = new CopyOnWriteArrayList<Client>();
+        hashingObject = new HashIndex();
+        loadTableIntoMemory("scripts/Y.txt");
         dataBuffer = new ConcurrentHashMap<Integer,Client>();
     }
 
@@ -58,8 +62,10 @@ class DataManager extends DBKernel implements Runnable {
     /*
      * Load the table script into memory
      */
-    static void loadTableIntoMemory(String tableFilePath){ 
+    void loadTableIntoMemory(String tableFilePath){ 
     	try {
+    		ArrayList<Client> temp = new ArrayList<Client>();
+    		int idCounter = 0;
     		//open the table script file
         	FileInputStream fstream = new FileInputStream(tableFilePath);
         	BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
@@ -73,12 +79,33 @@ class DataManager extends DBKernel implements Runnable {
 			  client.ID = Integer.parseInt(tupeStrs[0]);
 			  client.ClientName = tupeStrs[1];
 			  client.Phone = tupeStrs[2];
-			  tableInMemory.put(client.ID, client);
-			  System.out.println (client.ID+"---"+tableInMemory.size());
+			  if(idCounter<client.ID){
+				  idCounter = client.ID;
+			  }
+			  temp.add(client);
+			  System.out.println (client.ID+"---"+temp.size());
 			}
 			//Close the script stream
 			br.close();
+			
+			//put all the tuples in, with ClientID as the index of tuple being positioned at
+			for(int i =0;i<=idCounter;i++){
+				tableInMemory.add(null);
+			}
+			for(Client client: temp){
+				tableInMemory.set(client.ID, client);
+				//add it to the hashing object
+				hashingObject.insert(client.ID, client.ID);
+			}
+			//System.out.println ("---"+tableInMemory.size());
+		} catch (FileNotFoundException e) {
+			System.err.println("Table script does not exist. Please enter a valid script path.");
+			e.printStackTrace();
+		} catch (NumberFormatException e) {
+			System.err.println("Table script content is not consistent with data type requirements. Please use a valid script file.");
+			e.printStackTrace();
 		} catch (IOException e) {
+			System.err.println("Failed to read the table script.");
 			e.printStackTrace();
 		}
     	
@@ -101,10 +128,9 @@ class DataManager extends DBKernel implements Runnable {
     /*
      * Used for testing functions
      */
-//    public static void main(String[] args) {
-//    	tableInMemory = new ConcurrentHashMap<Integer,Client>();
-//    	loadTableIntoMemory("scripts/Y.txt");
-//    }
+    public static void main(String[] args) {
+    	DataManager manager = new DataManager(null, null, null, null, null, 0);
+    }
 
 }
 /*
@@ -131,9 +157,9 @@ class Client{
  */
 class HashIndex{
 	int MAXIMUM_BUCKET_SIZE = 6;
-	ConcurrentHashMap<Integer,ConcurrentHashMap<Integer,Integer>> indexContainer;
+	private ConcurrentHashMap<Integer,ConcurrentHashMap<Integer,Integer>> indexContainer;
 	//store all the overflowed indices
-	ConcurrentHashMap<Integer,Integer> overflowBucket ; 
+	private ConcurrentHashMap<Integer,Integer> overflowBucket ; 
 	public HashIndex(){
 		indexContainer = new ConcurrentHashMap<Integer,ConcurrentHashMap<Integer,Integer>>();
 		overflowBucket = new ConcurrentHashMap<Integer,Integer>();
@@ -146,7 +172,7 @@ class HashIndex{
 				//if the bucket's size surpass the bucket limit, then put it in the overflow bucket
 				overflowBucket.put(ID, index);
 			}else{
-				indexContainer.get(key).put(key, index);
+				indexContainer.get(key).put(ID, index);
 			}
 		}else{
 			ConcurrentHashMap<Integer,Integer> bucket = new ConcurrentHashMap<Integer,Integer>();
@@ -154,8 +180,21 @@ class HashIndex{
 			indexContainer.put(key, bucket);
 		}
 	}
+	/*
+	 * search the hashing structure to get the primary key or position of the client record in the database table.
+	 */
 	public int getIndex(int ID){
 		int index = 0;
+		int key = ID%16;
+		if(indexContainer.contains(key) && indexContainer.get(key).contains(ID)){
+			index = indexContainer.get(key).get(ID);
+		}else{
+			if(overflowBucket.contains(ID)){
+				index = overflowBucket.get(ID);
+			}else{
+				System.err.println("Hashing structure does not contain the input client ID -> "+ID);
+			}
+		}
 		return index;
 	}
 }
