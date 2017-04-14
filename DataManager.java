@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.concurrent.*;
 
 class DataManager extends DBKernel implements Runnable {
@@ -18,7 +19,7 @@ class DataManager extends DBKernel implements Runnable {
     //data structure that stores testing table content
     private CopyOnWriteArrayList<Client> tableInMemory;
     //data buffer object, a hash map with key being ID and value being tuple
-    private ConcurrentHashMap<Integer,Client> dataBuffer;
+    private HashMap<Integer,Client> dataBuffer;
     private HashIndex hashingObject;
 
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size) {
@@ -31,7 +32,7 @@ class DataManager extends DBKernel implements Runnable {
         tableInMemory = new CopyOnWriteArrayList<Client>();
         hashingObject = new HashIndex();
         loadTableIntoMemory("scripts/Y.txt");
-        dataBuffer = new ConcurrentHashMap<Integer,Client>();
+        dataBuffer = new HashMap<Integer,Client>();
     }
 
     @Override
@@ -112,26 +113,78 @@ class DataManager extends DBKernel implements Runnable {
 		}
     	
     }
+    /*
+     * Read a specific record from buffer. If buffer does not hold this record at the moment, it will fetch this record from database table.
+     * If the buffer is full, it will evict the least recently used record.
+     */
     Client readRecordFromBuffer(int ID){
-    	if(dataBuffer.contains(ID)){
-    		//TODO
+    	if(dataBuffer.containsKey(ID)){
+    		return dataBuffer.get(ID);
     	}else{
-    		//TODO
+    		//fetch this record from database table
+    		int index = hashingObject.getIndex(ID);
+    		if(index>0){
+    			Client client =  tableInMemory.get(index);
+    			checkBufferStatus();
+    			dataBuffer.put(client.ID, client);
+    			return client;
+    		}else{
+    			//TODO no such record
+    		}
     	}
     	return null;
     }
-    void writeRecordToBuffer(int ID){
-    	if(dataBuffer.contains(ID)){
-    		//TODO
+    /*
+     * Write a specific record. If buffer does not hold this record at the moment, it will fetch this record from database table.
+     * If the buffer is full, it will evict the least recently used record. Write the update back to database after the write.
+     */
+    boolean writeRecordToBuffer(int ID){
+    	if(dataBuffer.containsKey(ID)){
+    		dataBuffer.get(ID);//TODO
+    		int index = hashingObject.getIndex(ID);
+    		//TODO tableInMemory.set(index, element);
+			return true;
     	}else{
-    		//TODO
+    		//fetch this record from database table
+    		int index = hashingObject.getIndex(ID);
+    		if(index>0){
+    			Client client =  tableInMemory.get(index);
+    			checkBufferStatus();
+    			//TODO client tableInMemory.set(index, element);
+    			dataBuffer.put(client.ID, client);
+    			return true;
+    		}else{
+    			//TODO no such record
+    		}
+    	}
+    	return false;
+    }
+    void deleteAllRecords(){
+    	//TODO
+    }
+    void checkBufferStatus(){
+    	if(dataBuffer.size() >= bSize){
+    		long time = 0;
+    		int key = 0;
+    		for(Entry<Integer, Client> entry: dataBuffer.entrySet()){
+    			if(time==0){
+    				time = entry.getValue().leastedUsageTimestamp;
+    				key = entry.getKey();
+    			}else{
+    				if(entry.getValue().leastedUsageTimestamp<time){
+        				time = entry.getValue().leastedUsageTimestamp;
+        				key = entry.getKey();
+        			}
+    			}
+    		}
+    		dataBuffer.remove(key);
     	}
     }
     /*
      * Used for testing functions
      */
     public static void main(String[] args) {
-    	DataManager manager = new DataManager(null, null, null, null, null, 0);
+    	DataManager manager = new DataManager(null, null, null, null, null, 16);
     }
 
 }
