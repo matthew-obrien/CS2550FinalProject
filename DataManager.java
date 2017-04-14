@@ -83,6 +83,21 @@ class DataManager extends DBKernel implements Runnable {
 		}
     	
     }
+    Client readRecordFromBuffer(int ID){
+    	if(dataBuffer.contains(ID)){
+    		//TODO
+    	}else{
+    		//TODO
+    	}
+    	return null;
+    }
+    void writeRecordToBuffer(int ID){
+    	if(dataBuffer.contains(ID)){
+    		//TODO
+    	}else{
+    		//TODO
+    	}
+    }
     /*
      * Used for testing functions
      */
