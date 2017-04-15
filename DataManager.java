@@ -153,26 +153,46 @@ class DataManager extends DBKernel implements Runnable {
      * Write a specific record. If buffer does not hold this record at the moment, it will fetch this record from database table.
      * If the buffer is full, it will evict the least recently used record. Write the update back to database after the write.
      */
-    boolean writeRecordToBuffer(int ID){
+    boolean writeRecordToBuffer(int ID, String record){
+    	String[] tupeStrs = record.split(",");
+		Client tclient = new Client();
+		tclient.ID = Integer.parseInt(tupeStrs[0]);
+		tclient.ClientName = tupeStrs[1];
+		tclient.Phone = tupeStrs[2];
+		tclient.areaCode = Integer.parseInt(tclient.Phone.split("-")[0]);
+		tclient.leastedUsageTimestamp = System.currentTimeMillis();
     	if(dataBuffer.containsKey(ID)){
-    		dataBuffer.get(ID).leastedUsageTimestamp = System.currentTimeMillis();
-    		Client client = dataBuffer.get(ID);//TODO update attributes
+    		//tclient.isDirty = true;
+			dataBuffer.put(tclient.ID, tclient);
     		int index = hashingObject.getIndex(ID);
-    		tableInMemory.set(index, client);
+    		tableInMemory.set(index, tclient);
 			return true;
     	}else{
     		//fetch this record from database table
     		int index = hashingObject.getIndex(ID);
     		if(index>0){
-    			Client client =  tableInMemory.get(index);
+    			
     			checkBufferStatus();
-    			client.leastedUsageTimestamp = System.currentTimeMillis();
-    			//TODO update attributes
-    			tableInMemory.set(index, client);
-    			dataBuffer.put(client.ID, client);
+    			
+    			dataBuffer.put(tclient.ID, tclient);
+        		tableInMemory.set(index, tclient);
     			return true;
     		}else{
-    			//TODO no such record
+    			// no such record, store this record into database table.
+    			//store it to the table
+    			
+  			    if(tableInMemory.size()<tclient.ID){
+  			    	int tsize = tableInMemory.size()+1;
+  			    	for(int i=tsize;i<tclient.ID;i++){
+  			    		tableInMemory.set(i, null);
+  			    	}
+  			    }
+  			    tableInMemory.set(tclient.ID, tclient);
+    			//mark its existence in hashing object
+  			    hashingObject.insert(tclient.ID, tclient.ID);
+    			//bring it to the buffer
+  			    checkBufferStatus();
+  			    dataBuffer.put(tclient.ID, tclient);
     		}
     	}
     	return false;
