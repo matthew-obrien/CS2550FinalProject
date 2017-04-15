@@ -4,6 +4,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -21,6 +23,8 @@ class DataManager extends DBKernel implements Runnable {
     //data buffer object, a hash map with key being ID and value being tuple
     private HashMap<Integer,Client> dataBuffer;
     private HashIndex hashingObject;
+    private PrintWriter log1Writer;
+    private PrintWriter log2Writer;
 
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size) {
         threadName = name;
@@ -33,6 +37,13 @@ class DataManager extends DBKernel implements Runnable {
         hashingObject = new HashIndex();
         loadTableIntoMemory("scripts/Y.txt");
         dataBuffer = new HashMap<Integer,Client>();
+//        try {
+//			log1Writer = new PrintWriter("log1.log", "UTF-8");
+//			log2Writer = new PrintWriter("log2.log", "UTF-8");
+//		} catch (FileNotFoundException | UnsupportedEncodingException e) {
+//			System.err.println("Failed to read the table script.");
+//			e.printStackTrace();
+//		} 
     }
 
     @Override
@@ -52,6 +63,7 @@ class DataManager extends DBKernel implements Runnable {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        closeLog();
     }
 
     public void start() {
@@ -81,6 +93,7 @@ class DataManager extends DBKernel implements Runnable {
 			  client.ID = Integer.parseInt(tupeStrs[0]);
 			  client.ClientName = tupeStrs[1];
 			  client.Phone = tupeStrs[2];
+			  client.areaCode = Integer.parseInt(client.Phone.split("-")[0]);
 			  if(idCounter<client.ID){
 				  idCounter = client.ID;
 			  }
@@ -119,13 +132,15 @@ class DataManager extends DBKernel implements Runnable {
      */
     Client readRecordFromBuffer(int ID){
     	if(dataBuffer.containsKey(ID)){
+    		dataBuffer.get(ID).leastedUsageTimestamp = System.currentTimeMillis();
     		return dataBuffer.get(ID);
     	}else{
     		//fetch this record from database table
     		int index = hashingObject.getIndex(ID);
     		if(index>0){
-    			Client client =  tableInMemory.get(index);
+    			Client client = tableInMemory.get(index);
     			checkBufferStatus();
+    			client.leastedUsageTimestamp = System.currentTimeMillis();
     			dataBuffer.put(client.ID, client);
     			return client;
     		}else{
@@ -140,9 +155,10 @@ class DataManager extends DBKernel implements Runnable {
      */
     boolean writeRecordToBuffer(int ID){
     	if(dataBuffer.containsKey(ID)){
-    		dataBuffer.get(ID);//TODO
+    		dataBuffer.get(ID).leastedUsageTimestamp = System.currentTimeMillis();
+    		Client client = dataBuffer.get(ID);//TODO update attributes
     		int index = hashingObject.getIndex(ID);
-    		//TODO tableInMemory.set(index, element);
+    		tableInMemory.set(index, client);
 			return true;
     	}else{
     		//fetch this record from database table
@@ -150,7 +166,9 @@ class DataManager extends DBKernel implements Runnable {
     		if(index>0){
     			Client client =  tableInMemory.get(index);
     			checkBufferStatus();
-    			//TODO client tableInMemory.set(index, element);
+    			client.leastedUsageTimestamp = System.currentTimeMillis();
+    			//TODO update attributes
+    			tableInMemory.set(index, client);
     			dataBuffer.put(client.ID, client);
     			return true;
     		}else{
@@ -161,9 +179,20 @@ class DataManager extends DBKernel implements Runnable {
     }
     void deleteAllRecords(){
     	//TODO
+    	dataBuffer.clear();
+    	tableInMemory.clear();
+    	hashingObject.clear();
+    }
+    void getAllByArea(int areaCode){
+    	//TODO
+    	for(Client client:tableInMemory){
+    		if(client.areaCode==areaCode){
+    			System.out.println (areaCode+"-areaCode--"+client.ID);
+    		}
+    	}
     }
     void checkBufferStatus(){
-    	if(dataBuffer.size() >= bSize){
+    	if(dataBuffer.size() >= 10){//TODO bSize
     		long time = 0;
     		int key = 0;
     		for(Entry<Integer, Client> entry: dataBuffer.entrySet()){
@@ -177,14 +206,27 @@ class DataManager extends DBKernel implements Runnable {
         			}
     			}
     		}
+    		System.out.println ("Evict---"+key);
     		dataBuffer.remove(key);
     	}
+    }
+    void closeLog(){
+    	log1Writer.close();
+    	log2Writer.close();
     }
     /*
      * Used for testing functions
      */
     public static void main(String[] args) {
     	DataManager manager = new DataManager(null, null, null, null, null, 16);
+//    	for(int i =1;i<20;i++){
+//    		manager.writeRecordToBuffer(i);
+//    	}
+//    	for(Entry<Integer, Client> entry: manager.dataBuffer.entrySet()){
+//    		System.out.println (entry.getKey()+"---"+entry.getValue().ID);
+//    		System.out.println ("---"+manager.tableInMemory.get(entry.getKey()).leastedUsageTimestamp);
+//    	}
+    	//manager.getAllByArea(412);
     }
 
 }
@@ -200,6 +242,7 @@ class Client{
 	String ClientName;
 	String Phone;
 	
+	int areaCode;
 	//the flag that indicates whether the record has been updated or not.
 	boolean isDirty = false;
 	//the time stamp that indicates when this record was mostly recently used.
@@ -257,6 +300,10 @@ class HashIndex{
 			System.err.println("Hashing structure does not contain the input client ID -> "+ID);
 		}
 		return index;
+	}
+	public void clear(){
+		indexContainer.clear();
+		overflowBucket.clear();
 	}
 	private int hashFunction(int ID){
 		return ID%HASH_BASE;
