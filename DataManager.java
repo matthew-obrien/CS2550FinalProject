@@ -59,6 +59,30 @@ class DataManager extends DBKernel implements Runnable {
                 {
                     break;
                 }
+                OperationType opType = oper.op;
+                switch (opType) {
+                case Begin:
+                    
+                    break;
+                case Read:
+                	int ID = Integer.parseInt(oper.value);
+                	readRecordFromBuffer(ID);
+                	break;
+                case Write:
+                	writeRecordToBuffer(oper.value);
+                    break;
+                case MRead:
+                	int areaCode = Integer.parseInt(oper.value);
+                	getAllByArea(areaCode);
+                    break;
+                case Commit:
+                    break;
+                case Abort:
+                    break;
+                case Delete:
+                	deleteAllRecords();
+                    break;
+            }
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -153,7 +177,7 @@ class DataManager extends DBKernel implements Runnable {
      * Write a specific record. If buffer does not hold this record at the moment, it will fetch this record from database table.
      * If the buffer is full, it will evict the least recently used record. Write the update back to database after the write.
      */
-    boolean writeRecordToBuffer(int ID, String record){
+    boolean writeRecordToBuffer(String record){
     	String[] tupeStrs = record.split(",");
 		Client tclient = new Client();
 		tclient.ID = Integer.parseInt(tupeStrs[0]);
@@ -161,15 +185,15 @@ class DataManager extends DBKernel implements Runnable {
 		tclient.Phone = tupeStrs[2];
 		tclient.areaCode = Integer.parseInt(tclient.Phone.split("-")[0]);
 		tclient.leastedUsageTimestamp = System.currentTimeMillis();
-    	if(dataBuffer.containsKey(ID)){
+    	if(dataBuffer.containsKey(tclient.ID)){
     		//tclient.isDirty = true;
 			dataBuffer.put(tclient.ID, tclient);
-    		int index = hashingObject.getIndex(ID);
+    		int index = hashingObject.getIndex(tclient.ID);
     		tableInMemory.set(index, tclient);
 			return true;
     	}else{
     		//fetch this record from database table
-    		int index = hashingObject.getIndex(ID);
+    		int index = hashingObject.getIndex(tclient.ID);
     		if(index>0){
     			
     			checkBufferStatus();
