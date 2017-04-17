@@ -76,8 +76,12 @@ class DataManager extends DBKernel implements Runnable {
                 	getAllByArea(areaCode);
                     break;
                 case Commit:
+                	//TODO a transaction can not commit if the transactions it depends on have not commit yet. So dependency graph is needed.
                     break;
                 case Abort:
+                	//if a transaction is aborted, all the transactions that depend on it must also been aborted. So dependency graph is needed. 
+                	//And Before images must be kept for insuring the full recovery of the previous consistent state.
+                	//Tell TM immediately after an abortion, stopping issuing new transactions.
                     break;
                 case Delete:
                 	deleteAllRecords();
@@ -177,6 +181,15 @@ class DataManager extends DBKernel implements Runnable {
      * Write a specific record. If buffer does not hold this record at the moment, it will fetch this record from database table.
      * If the buffer is full, it will evict the least recently used record. Write the update back to database after the write.
      */
+  //TODO do not modify database before seeing commit operation and write ops down. Ask TA if operations of a transaction could be made to database
+    //TODO if operations can only execute the data from its own transaction buffer?????? 
+    //TODO should data manager have such a control logic??????
+    
+    //TODO if every write operation will go to database, 
+    //does that mean that all the previous operations of the same transaction will be recovered 
+    //as well as transactions that depend on this transaction will also have to be aborted if this transaction is aborted.
+    
+    //TODO undo when a transaction aborts. keep a before image and which transactions depend on it.
     boolean writeRecordToBuffer(String record){
     	String[] tupeStrs = record.split(",");
 		Client tclient = new Client();
@@ -235,7 +248,7 @@ class DataManager extends DBKernel implements Runnable {
     		}
     	}
     }
-    void checkBufferStatus(){
+    void checkBufferStatus(){//TODO A fixed page will not be replaced until it is unfixed.
     	if(dataBuffer.size() >= 10){//TODO bSize
     		long time = 0;
     		int key = 0;
@@ -291,6 +304,8 @@ class Client{
 	boolean isDirty = false;
 	//the time stamp that indicates when this record was mostly recently used.
 	long leastedUsageTimestamp = 0;
+	//TODO A fixed page will not be replaced until it is unfixed.
+	int fix =0;
 	public Client(){}
 }
 /*
