@@ -28,6 +28,13 @@ class Scheduler extends DBKernel implements Runnable {
             while(true)
             {
                 dbOp oper = tmsc.take();
+                
+                if(oper.tID == -2) //check for change message
+                {
+                    System.out.println("changing modes");
+                    twopl.set(!twopl.get());
+                    continue;
+                }
                 if(oper.op == null) //check for final message
                 {
                     System.out.println("Final operation scheduled. SC exiting.");

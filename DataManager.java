@@ -65,7 +65,7 @@ class DataManager extends DBKernel implements Runnable {
                     System.out.println("Final operation completed. DM exiting.");
                     return;
                 }
-                OperationType opType = oper.op;
+                /*OperationType opType = oper.op;
                 switch (opType) {
                 case Begin:
                     
@@ -92,7 +92,7 @@ class DataManager extends DBKernel implements Runnable {
                 case Delete:
                 	deleteAllRecords();
                     break;
-                }
+                }*/
                 //This must be the last thing done.
                 blSet.remove(oper.tID);
             }

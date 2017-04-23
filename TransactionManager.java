@@ -22,8 +22,10 @@ class TransactionManager extends DBKernel implements Runnable {
     private Integer currTID = 0;
     private Short currRequestType = 0;
     private int[] tIDMappings;
-    final private AtomicBoolean twopl;
-    final private boolean changing = false; //is set to true when moving from OCC to 2pl, and determines whether a new transaction will be allowed to start.
+    private AtomicBoolean twopl;
+    private boolean changing = false; //is set to true when moving from OCC to 2pl, and determines whether a new transaction will be allowed to start.
+    private boolean[] reads = {false,false,false,false,false,false,false,false,false,false,false,false,false,false,false};
+    private int readsInd = 0;
     
     TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
         threadName = name;
@@ -54,16 +56,42 @@ class TransactionManager extends DBKernel implements Runnable {
             int i = 0; //initialize it now. Doesn't matter for random, but round robin needs to persist.
             while(!loadedScripts.isEmpty())
             { 
+                OperationType operation;
                 if(rand)
                 {
                     //random implementation
                     i = random.nextInt(loadedScripts.size());
-                    while(blSet.contains(tIDMappings[i]))
+                    int loop = i;
+                    boolean changed = false;
+                    while(blSet.contains(tIDMappings[i]) || (changing && loadedScripts.get(i).peek().op == OperationType.Begin))
                     {
                         i = (i+1)%loadedScripts.size();
+                        if(i == loop && changing) //than we may be ready to switch modes
+                        {
+                            for(int j = 0; j < loadedScripts.size(); j++)
+                            {
+                                //check to see if any of the remaining dudes are on anything other than a begin as their next operation.
+                                if(loadedScripts.get(j).peek().op != OperationType.Begin) continue; //if any transaction is still going, don't change yet
+                            }
+                            //if we get here, then we have no active transactions. Send the message to change.
+                            dbOp change = new dbOp(-2, (short)-1, null, null, null);
+                            changed = true;
+                            tmsc.add(change);
+                            boolean match = twopl.get();
+                            while(match == twopl.get()) ; //wait until the scheduler changes the modes.
+                            break;
+                        }
                     }
+                    if(changed) 
+                    {
+                        changing = false;
+                        continue; //and finally, if we changed modes, continue to the next loop
+                    }
+                    
+                    //now get the operation and act
                     LinkedList<dbOp> opers = loadedScripts.get(i);
                     dbOp oper = opers.poll();
+                    operation = oper.op;
                     blSet.add(oper.tID);
                     tIDMappings[i] = oper.tID;
                     //System.out.println("\nTM has sent the following operation:\n"+oper);
@@ -76,12 +104,37 @@ class TransactionManager extends DBKernel implements Runnable {
                 else
                 {
                     //round robin
-                    while(blSet.contains(tIDMappings[i]))
+                    boolean changed = false;
+                    int loop = i;
+                    while(blSet.contains(tIDMappings[i]) || (changing && loadedScripts.get(i).peek().op == OperationType.Begin))
                     {
                         i = (i+1)%loadedScripts.size();
+                        if(i == loop && changing) //than we may be ready to switch modes
+                        {
+                            for(int j = 0; j < loadedScripts.size(); j++)
+                            {
+                                //check to see if any of the remaining dudes are on anything other than a begin as their next operation.
+                                if(loadedScripts.get(j).peek().op != OperationType.Begin) continue; //if any transaction is still going, don't change yet
+                            }
+                            //if we get here, then we have no active transactions. Send the message to change.
+                            dbOp change = new dbOp(-2, (short)-1, null, null, null);
+                            changed = true;
+                            tmsc.add(change);
+                            boolean match = twopl.get();
+                            while(match == twopl.get()) ; //wait until the scheduler changes the modes
+                            break;
+                        }
                     }
+                    if(changed) 
+                    {
+                        changing = false;
+                        continue; //and finally, if we changed modes, continue to the next loop
+                    }
+                    
+                    //now get the operation and stuff
                     LinkedList<dbOp> opers = loadedScripts.get(i);
                     dbOp oper = opers.poll();
+                    operation = oper.op;
                     blSet.add(oper.tID);
                     tIDMappings[i] = oper.tID;
                     //System.out.println("\nTM has sent the following operation:\n"+oper);
@@ -96,6 +149,46 @@ class TransactionManager extends DBKernel implements Runnable {
                         i = (i+1)%loadedScripts.size();
                     }
                     
+                }
+                
+                //update the reads table
+                if(operation == OperationType.Read || operation == OperationType.MRead)
+                {
+                    reads[readsInd] = true;
+                    readsInd = (readsInd+1)%reads.length;
+                }
+                else if (operation == OperationType.Write)
+                {
+                       System.out.println("Write.");
+                    reads[readsInd] = false;
+                    readsInd = (readsInd+1)%reads.length;
+                }
+                
+                //see if we should be switching modes or not
+                if(twopl.get())
+                {
+                    //if we're in twopl, we check if we shoudl switch to OCC or, if we are switching, if we should stop switching.
+                    if(mostlyReads())
+                    {
+                        changing = true;
+                    }
+                    if(enoughWrites())//both condition can't be true, but there are situations where neither is, so no else statment
+                    {
+                        changing = false;
+                    }
+                }
+                else
+                {
+                    //if we're in OCC, check if we should be switching, or if we are switching if we should stop.
+                    if(mostlyReads())
+                    {
+                        changing = false;
+                    }
+                    if(enoughWrites())//both condition can't be true, but there are situations where neither is, so no else statment
+                    {
+                           System.out.println("Getting here.");
+                        changing = true;
+                    }
                 }
             }
             dbOp end = new dbOp(-1, (short)-1, null, null, null);
@@ -177,5 +270,27 @@ class TransactionManager extends DBKernel implements Runnable {
         op.tID = currTID;
         op.type = currRequestType;
         return op;
+    }
+    
+    private boolean mostlyReads() //if there are enough reads in the buffer to switch modes.
+    {
+        int count = 0;
+        for(int i = 0; i < reads.length; i++)
+        {
+            if(reads[i]) count++;
+        }
+        if(count > 12) return true;
+        return false;
+    }
+    
+    private boolean enoughWrites() //if there are enough writes in the buffer to switch modes.
+    {
+        int count = 0;
+        for(int i = 0; i < reads.length; i++)
+        {
+            if(reads[i]) count++;
+        }
+        if(count < 8) return true;
+        return false;
     }
 }
