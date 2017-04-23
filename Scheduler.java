@@ -24,7 +24,7 @@ class Scheduler extends DBKernel implements Runnable {
                 scdm.add(oper);
                 if(oper.op == null)
                 {
-                    break;
+                    return;
                 }
             }
         } catch (InterruptedException e) {

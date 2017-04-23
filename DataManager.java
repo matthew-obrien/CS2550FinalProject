@@ -16,6 +16,7 @@ class DataManager extends DBKernel implements Runnable {
     final private LinkedBlockingQueue<dbOp> scdm;
     final private LinkedBlockingQueue<dbOp> tmsc;
     final private ConcurrentSkipListSet<Integer> blSet;
+    final private ConcurrentSkipListSet<Integer> abSet; //add a transaction to this to have TM abort it prematurely
     final private String filesDir;
     final private int bSize;
     //data structure that stores testing table content
@@ -26,16 +27,17 @@ class DataManager extends DBKernel implements Runnable {
     private PrintWriter log1Writer;
     private PrintWriter log2Writer;
 
-    DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size) {
+    DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn) {
         threadName = name;
         tmsc = q1;
         scdm = q2;
         blSet = blSetIn;
+        abSet = abSetIn;
         filesDir = dir;
         bSize = size;
         tableInMemory = new CopyOnWriteArrayList<Client>();
         hashingObject = new HashIndex();
-        loadTableIntoMemory("scripts/Y.txt");
+        loadTableIntoMemory("tables/Y.txt");
         dataBuffer = new HashMap<Integer,Client>();
 //        try {
 //			log1Writer = new PrintWriter("log1.log", "UTF-8");
@@ -54,10 +56,10 @@ class DataManager extends DBKernel implements Runnable {
             {
                 dbOp oper = scdm.take();
                 /*if(oper.op == OperationType.Begin)*/ System.out.println("\nDM has received the following operation:\n"+oper);
-                blSet.remove(oper.tID);
+                
                 if(oper.op == null)
                 {
-                    break;
+                    return;
                 }
                 OperationType opType = oper.op;
                 switch (opType) {
@@ -86,7 +88,9 @@ class DataManager extends DBKernel implements Runnable {
                 case Delete:
                 	deleteAllRecords();
                     break;
-            }
+                }
+                //This must be the last thing done.
+                blSet.remove(oper.tID);
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -115,7 +119,7 @@ class DataManager extends DBKernel implements Runnable {
         	String tupeLine;
         	//read tuples one by one
 			while ((tupeLine = br.readLine()) != null)   {
-			  System.out.println (tupeLine);
+			  //System.out.println (tupeLine);
 			  String[] tupeStrs = tupeLine.split(",");
 			  Client client = new Client();
 			  client.ID = Integer.parseInt(tupeStrs[0]);
@@ -126,7 +130,7 @@ class DataManager extends DBKernel implements Runnable {
 				  idCounter = client.ID;
 			  }
 			  temp.add(client);
-			  System.out.println (client.ID+"---"+temp.size());
+			  //System.out.println (client.ID+"---"+temp.size());
 			}
 			//Close the script stream
 			br.close();
@@ -191,6 +195,7 @@ class DataManager extends DBKernel implements Runnable {
     
     //TODO undo when a transaction aborts. keep a before image and which transactions depend on it.
     boolean writeRecordToBuffer(String record){
+        record = record.replace("(","");
     	String[] tupeStrs = record.split(",");
 		Client tclient = new Client();
 		tclient.ID = Integer.parseInt(tupeStrs[0]);
@@ -244,7 +249,7 @@ class DataManager extends DBKernel implements Runnable {
     	//TODO
     	for(Client client:tableInMemory){
     		if(client.areaCode==areaCode){
-    			System.out.println (areaCode+"-areaCode--"+client.ID);
+    			//System.out.println (areaCode+"-areaCode--"+client.ID);
     		}
     	}
     }
@@ -263,7 +268,7 @@ class DataManager extends DBKernel implements Runnable {
         			}
     			}
     		}
-    		System.out.println ("Evict---"+key);
+    		//System.out.println ("Evict---"+key);
     		dataBuffer.remove(key);
     	}
     }

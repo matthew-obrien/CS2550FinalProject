@@ -46,19 +46,20 @@ public class myPTA
         LinkedBlockingQueue<dbOp> tmsc = new LinkedBlockingQueue<>(); //queue for operations being passed from the tm to the sc. Sometimes used by DM (for spontaneous aborts).
         LinkedBlockingQueue<dbOp> scdm = new LinkedBlockingQueue<>(); //queue for operations being passed from sc to dm.
         ConcurrentSkipListSet<Integer> blockingSet = new ConcurrentSkipListSet<>(); //description in Appendix (1)
+        ConcurrentSkipListSet<Integer> abortingSet = new ConcurrentSkipListSet<>(); //description in Appendix (1)
         
         //now intialize and start the threads
         TransactionManager tm;
         if(seed == null)
         {
-            tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir);            
+            tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir, abortingSet);            
         }
         else
         {
-            tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir, seed);            
+            tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir, seed, abortingSet);            
         }
         Scheduler sc = new Scheduler("SC", tmsc, scdm);
-        DataManager dm = new DataManager("DM", tmsc, scdm, blockingSet,filesDir,bufferSize);
+        DataManager dm = new DataManager("DM", tmsc, scdm, blockingSet,filesDir,bufferSize, abortingSet);
         
         tm.start();
         sc.start();

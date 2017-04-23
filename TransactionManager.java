@@ -14,6 +14,7 @@ class TransactionManager extends DBKernel implements Runnable {
 
     final private LinkedBlockingQueue<dbOp> tmsc;
     final private ConcurrentSkipListSet<Integer> blSet;
+    final private ConcurrentSkipListSet<Integer> abSet; //if a transaction is added to this, abort it prematurely.
     final private String scriptsDir;
     final private ArrayList<LinkedList<dbOp>> loadedScripts = new ArrayList<>();
     final private boolean rand;
@@ -22,19 +23,21 @@ class TransactionManager extends DBKernel implements Runnable {
     private Short currRequestType = 0;
     private int[] tIDMappings;
 
-    TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir) {
+    TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir, ConcurrentSkipListSet<Integer> abSetIn) {
         threadName = name;
         tmsc = q1;
         blSet = blSetIn;
+        abSet = abSetIn;
         scriptsDir = dir;
         random = new Random();
         rand = false;
     }
     
-    TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir, long seed) {
+    TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir, long seed, ConcurrentSkipListSet<Integer> abSetIn) {
         threadName = name;
         tmsc = q1;
         blSet = blSetIn;
+        abSet = abSetIn;
         scriptsDir = dir;
         random = new Random(seed);
         rand = true;
@@ -59,7 +62,7 @@ class TransactionManager extends DBKernel implements Runnable {
                     dbOp oper = opers.poll();
                     blSet.add(oper.tID);
                     tIDMappings[i] = oper.tID;
-                    System.out.println("\nTM has sent the following operation:\n"+oper);
+                    //System.out.println("\nTM has sent the following operation:\n"+oper);
                     tmsc.add(oper);
                     if(opers.isEmpty())
                     {
@@ -77,7 +80,7 @@ class TransactionManager extends DBKernel implements Runnable {
                     dbOp oper = opers.poll();
                     blSet.add(oper.tID);
                     tIDMappings[i] = oper.tID;
-                    System.out.println("\nTM has sent the following operation:\n"+oper);
+                    //System.out.println("\nTM has sent the following operation:\n"+oper);
                     tmsc.add(oper);
                     if(opers.isEmpty())
                     {
@@ -91,8 +94,9 @@ class TransactionManager extends DBKernel implements Runnable {
                     
                 }
             }
-            dbOp end = new dbOp(-1, (short)-1, null, null, null);
-            tmsc.add(end);  
+            //dbOp end = new dbOp(-1, (short)-1, null, null, null);
+            //tmsc.add(end);
+            return;            
         } catch (Exception ex) {
             Logger.getLogger(TransactionManager.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -145,6 +149,10 @@ class TransactionManager extends DBKernel implements Runnable {
                 currTID++;
                 break;
             case Write:
+                op.table = operationSymbols[1];
+                op.value = operationSymbols[2];
+                break;
+            case Read:
                 op.table = operationSymbols[1];
                 op.value = operationSymbols[2];
                 break;
