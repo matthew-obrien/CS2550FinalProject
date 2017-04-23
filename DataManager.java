@@ -60,6 +60,12 @@ class DataManager extends DBKernel implements Runnable {
                 dbOp oper = scdm.take();
                 ///*if(oper.op == OperationType.Begin)*/ System.out.println("\nDM has received the following operation:\n"+oper);
                 
+                if(oper.tID == -2) //check for change message
+                {
+                    System.out.println("Changing modes.");
+                    twopl.set(!twopl.get());
+                    continue;
+                }
                 if(oper.op == null)
                 {
                     System.out.println("Final operation completed. DM exiting.");

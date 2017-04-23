@@ -31,8 +31,9 @@ class Scheduler extends DBKernel implements Runnable {
                 
                 if(oper.tID == -2) //check for change message
                 {
-                    System.out.println("changing modes");
-                    twopl.set(!twopl.get());
+                    scdm.add(oper);
+                    boolean wait = twopl.get();
+                    while(wait == twopl.get());
                     continue;
                 }
                 if(oper.op == null) //check for final message
