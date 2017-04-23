@@ -1,5 +1,6 @@
 import java.util.concurrent.*;
 import java.util.Date;
+import java.util.concurrent.atomic.*;
 
 public class myPTA
 {
@@ -46,20 +47,21 @@ public class myPTA
         LinkedBlockingQueue<dbOp> tmsc = new LinkedBlockingQueue<>(); //queue for operations being passed from the tm to the sc. Sometimes used by DM (for spontaneous aborts).
         LinkedBlockingQueue<dbOp> scdm = new LinkedBlockingQueue<>(); //queue for operations being passed from sc to dm.
         ConcurrentSkipListSet<Integer> blockingSet = new ConcurrentSkipListSet<>(); //description in Appendix (1)
-        ConcurrentSkipListSet<Integer> abortingSet = new ConcurrentSkipListSet<>(); //description in Appendix (1)
+        ConcurrentSkipListSet<Integer> abortingSet = new ConcurrentSkipListSet<>(); //transaction set to prematurely abort have their IDs put here
+        AtomicBoolean twopl = new AtomicBoolean(true); //we start in 2pl
         
         //now intialize and start the threads
         TransactionManager tm;
         if(seed == null)
         {
-            tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir, abortingSet);            
+            tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir, abortingSet, twopl);            
         }
         else
         {
-            tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir, seed, abortingSet);            
+            tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir, seed, abortingSet, twopl);            
         }
-        Scheduler sc = new Scheduler("SC", tmsc, scdm);
-        DataManager dm = new DataManager("DM", tmsc, scdm, blockingSet,filesDir,bufferSize, abortingSet);
+        Scheduler sc = new Scheduler("SC", tmsc, scdm, twopl);
+        DataManager dm = new DataManager("DM", tmsc, scdm, blockingSet,filesDir,bufferSize, abortingSet, twopl);
         
         tm.start();
         sc.start();

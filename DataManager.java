@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
 
 class DataManager extends DBKernel implements Runnable {
 
@@ -26,8 +27,9 @@ class DataManager extends DBKernel implements Runnable {
     private HashIndex hashingObject;
     private PrintWriter log1Writer;
     private PrintWriter log2Writer;
+    final private AtomicBoolean twopl;
 
-    DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn) {
+    DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
         threadName = name;
         tmsc = q1;
         scdm = q2;
@@ -39,6 +41,7 @@ class DataManager extends DBKernel implements Runnable {
         hashingObject = new HashIndex();
         loadTableIntoMemory("tables/Y.txt");
         dataBuffer = new HashMap<Integer,Client>();
+        twopl = twoplin;
 //        try {
 //			log1Writer = new PrintWriter("log1.log", "UTF-8");
 //			log2Writer = new PrintWriter("log2.log", "UTF-8");
@@ -55,10 +58,11 @@ class DataManager extends DBKernel implements Runnable {
             while(true)
             {
                 dbOp oper = scdm.take();
-                /*if(oper.op == OperationType.Begin)*/ System.out.println("\nDM has received the following operation:\n"+oper);
+                ///*if(oper.op == OperationType.Begin)*/ System.out.println("\nDM has received the following operation:\n"+oper);
                 
                 if(oper.op == null)
                 {
+                    System.out.println("Final operation completed. DM exiting.");
                     return;
                 }
                 OperationType opType = oper.op;
@@ -275,20 +279,6 @@ class DataManager extends DBKernel implements Runnable {
     void closeLog(){
     	log1Writer.close();
     	log2Writer.close();
-    }
-    /*
-     * Used for testing functions
-     */
-    public static void main(String[] args) {
-    	DataManager manager = new DataManager(null, null, null, null, null, 16);
-//    	for(int i =1;i<20;i++){
-//    		manager.writeRecordToBuffer(i);
-//    	}
-//    	for(Entry<Integer, Client> entry: manager.dataBuffer.entrySet()){
-//    		System.out.println (entry.getKey()+"---"+entry.getValue().ID);
-//    		System.out.println ("---"+manager.tableInMemory.get(entry.getKey()).leastedUsageTimestamp);
-//    	}
-    	//manager.getAllByArea(412);
     }
 
 }

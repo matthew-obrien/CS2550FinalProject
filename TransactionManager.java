@@ -1,4 +1,4 @@
-
+import java.util.concurrent.atomic.*;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -22,8 +22,10 @@ class TransactionManager extends DBKernel implements Runnable {
     private Integer currTID = 0;
     private Short currRequestType = 0;
     private int[] tIDMappings;
-
-    TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir, ConcurrentSkipListSet<Integer> abSetIn) {
+    final private AtomicBoolean twopl;
+    final private boolean changing = false; //is set to true when moving from OCC to 2pl, and determines whether a new transaction will be allowed to start.
+    
+    TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
         threadName = name;
         tmsc = q1;
         blSet = blSetIn;
@@ -31,9 +33,10 @@ class TransactionManager extends DBKernel implements Runnable {
         scriptsDir = dir;
         random = new Random();
         rand = false;
+        twopl = twoplin;
     }
     
-    TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir, long seed, ConcurrentSkipListSet<Integer> abSetIn) {
+    TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir, long seed, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
         threadName = name;
         tmsc = q1;
         blSet = blSetIn;
@@ -41,6 +44,7 @@ class TransactionManager extends DBKernel implements Runnable {
         scriptsDir = dir;
         random = new Random(seed);
         rand = true;
+        twopl = twoplin;
     }
 
     @Override
@@ -94,8 +98,9 @@ class TransactionManager extends DBKernel implements Runnable {
                     
                 }
             }
-            //dbOp end = new dbOp(-1, (short)-1, null, null, null);
-            //tmsc.add(end);
+            dbOp end = new dbOp(-1, (short)-1, null, null, null);
+            tmsc.add(end);
+            System.out.println("Final operation read and sent. TM exiting.");
             return;            
         } catch (Exception ex) {
             Logger.getLogger(TransactionManager.class.getName()).log(Level.SEVERE, null, ex);
