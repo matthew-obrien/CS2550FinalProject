@@ -72,7 +72,7 @@ class DataManager extends DBKernel implements Runnable {
                     System.out.println("Final operation completed. DM exiting.");
                     return;
                 }
-                /**/
+                /*
                 OperationType opType = oper.op;
                 switch (opType) {
                 case Begin:
@@ -102,7 +102,7 @@ class DataManager extends DBKernel implements Runnable {
                 	//deleteAllRecords();
                     break;
                 }
-                
+                */
                 //This must be the last thing done.
                 blSet.remove(oper.tID);
             }
@@ -307,11 +307,11 @@ class DataManager extends DBKernel implements Runnable {
     	debugActionLogWriter.close();
     	transactionLogWriter.close();
     }
-    public static void main (String[] args)
-    {
-    	DataManager manager =new DataManager(null, null, null, null, null, 1, null, new AtomicBoolean(true));
-    	//loadTableIntoMemory("tables");
-    }
+//    public static void main (String[] args)
+//    {
+//    	DataManager manager =new DataManager(null, null, null, null, null, 1, null, new AtomicBoolean(true));
+//    	//loadTableIntoMemory("tables");
+//    }
 
 }
 /*
