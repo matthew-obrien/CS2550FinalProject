@@ -231,7 +231,7 @@ class DataManager extends DBKernel implements Runnable {
      * If the buffer is full, it will evict the least recently used record. Write the update back to database after the write.
      */
   
-    boolean writeRecordToBuffer(String tableName,String record){
+    boolean writeRecordToBuffer(Short type, String tableName,String record){
         record = record.replace("(","");
     	String[] tupeStrs = record.split(",");
 		Client tclient = new Client();
@@ -240,11 +240,15 @@ class DataManager extends DBKernel implements Runnable {
 		tclient.Phone = tupeStrs[2];
 		tclient.areaCode = Integer.parseInt(tclient.Phone.split("-")[0]);
 		tclient.leastedUsageTimestamp = System.currentTimeMillis();
-    	if(dataBuffer.containsKey(tclient.ID)){
+		
+		String bufferID = tableName+tclient.ID;
+		
+    	if(dataBuffer.containsKey(bufferID)){
     		//tclient.isDirty = true;
-			dataBuffer.put(tableName+tclient.ID, tclient);
+			dataBuffer.put(bufferID, tclient);
     		int index = hashingObject.get(tableName).getIndex(tclient.ID);
     		tableInMemory.get(tableName).set(index, tclient);
+    		
 			return true;
     	}else{
     		//fetch this record from database table
