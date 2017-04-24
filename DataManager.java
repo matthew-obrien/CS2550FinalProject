@@ -6,6 +6,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -22,16 +23,18 @@ class DataManager extends DBKernel implements Runnable {
     final private int bSize;
     //data structure that stores testing table content
     private HashMap <String,CopyOnWriteArrayList<Client>> tableInMemory;
-    //data buffer object, a hash map with key being ID and value being tuple
+    //data buffer object, a hash map with key being TableName+ID and value being tuple
     private HashMap<String,Client> dataBuffer;
     private HashMap<String,HashIndex> hashingObject;
     private PrintWriter debugActionLogWriter;
     private PrintWriter transactionLogWriter;
     private long transactionLogSequenceNumber = 1;
+    public final static String LOG_TAG = "        DataManager: ";
     final private AtomicBoolean twopl;
 
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
-        threadName = name;
+    	System.out.println(LOG_TAG+"DataManager initiating... with table directory '"+dir +"' and buffer size "+size);
+    	threadName = name;
         tmsc = q1;
         scdm = q2;
         blSet = blSetIn;
@@ -40,16 +43,16 @@ class DataManager extends DBKernel implements Runnable {
         bSize = size;
         tableInMemory = new HashMap <String,CopyOnWriteArrayList<Client>>();
         hashingObject = new HashMap<String,HashIndex>();
-        loadTableIntoMemory("tables");
+        loadTableIntoMemory(filesDir);
         dataBuffer = new HashMap<String,Client>();
         twopl = twoplin;
-//        try {
-//			log1Writer = new PrintWriter("log1.log", "UTF-8");
-//			log2Writer = new PrintWriter("log2.log", "UTF-8");
-//		} catch (FileNotFoundException | UnsupportedEncodingException e) {
-//			System.err.println("Failed to read the table script.");
-//			e.printStackTrace();
-//		} 
+        try {
+        	debugActionLogWriter = new PrintWriter("debugActionLog.log", "UTF-8");
+        	transactionLogWriter = new PrintWriter("transactionLog.log", "UTF-8");
+		} catch (FileNotFoundException | UnsupportedEncodingException e) {
+			System.err.println("Failed to read the table script.");
+			e.printStackTrace();
+		} 
     }
 
     @Override
@@ -63,16 +66,17 @@ class DataManager extends DBKernel implements Runnable {
                 
                 if(oper.tID == -2) //check for change message
                 {
-                    System.out.println("Changing modes.");
+                    System.out.println(LOG_TAG+"Changing modes.");
                     twopl.set(!twopl.get());
                     continue;
                 }
                 if(oper.op == null)
                 {
-                    System.out.println("Final operation completed. DM exiting.");
+                    System.out.println(LOG_TAG+"Final operation completed. DM exiting.");
                     return;
                 }
-                /*
+                //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
+                /**/
                 OperationType opType = oper.op;
                 switch (opType) {
                 case Begin:
@@ -80,8 +84,8 @@ class DataManager extends DBKernel implements Runnable {
                 	writeTransactionLog(oper.type +" "+oper.tID+ " Begin");
                     break;
                 case Read:
-                	//int ID = Integer.parseInt(oper.value);
-                	//readRecordFromBuffer(oper.table,ID);
+                	int ID = Integer.parseInt(oper.value);
+                	readRecordFromBuffer(oper.type,oper.table,ID);
                 	break;
                 case Write:
                 	//writeRecordToBuffer(oper.value);
@@ -99,10 +103,12 @@ class DataManager extends DBKernel implements Runnable {
                 	//Tell TM immediately after an abortion, stopping issuing new transactions.
                     break;
                 case Delete:
-                	//deleteAllRecords();
+                	//write log
+                	writeTransactionLog(oper.type +" "+oper.tID+ " Begin");
+                	deleteAllRecords(oper.type,oper.table);
                     break;
                 }
-                */
+                
                 //This must be the last thing done.
                 blSet.remove(oper.tID);
             }
@@ -126,14 +132,14 @@ class DataManager extends DBKernel implements Runnable {
     void loadTableIntoMemory(String tableFileDir){ 
     	File dirFile = new File(tableFileDir);
     	if(!dirFile.exists()){
-    		System.out.println("The table script directory does not exist.");
+    		System.err.println(LOG_TAG+"The table script directory does not exist.");
     	}
     	
     	File[] listOfFiles = dirFile.listFiles();
     	for(File file:listOfFiles){
     		String name = file.getName();
     		name = name.substring(0, name.lastIndexOf("."));
-    		System.out.println("Loading table "+name + " into memory.");
+    		System.out.println(LOG_TAG+"Loading table "+name + " into memory.");
     		tableInMemory.put(name, new CopyOnWriteArrayList<Client>());
     		hashingObject.put(name, new HashIndex());
     		try {
@@ -174,21 +180,21 @@ class DataManager extends DBKernel implements Runnable {
     			}
     			
     		} catch (FileNotFoundException e) {
-    			System.err.println("Table script does not exist. Please enter a valid script path.");
+    			System.err.println(LOG_TAG+"Table script does not exist. Please enter a valid script path.");
     			e.printStackTrace();
     		} catch (NumberFormatException e) {
-    			System.err.println("Table script content is not consistent with data type requirements. Please use a valid script file.");
+    			System.err.println(LOG_TAG+"Table script content is not consistent with data type requirements. Please use a valid script file.");
     			e.printStackTrace();
     		} catch (IOException e) {
-    			System.err.println("Failed to read the table script.");
+    			System.err.println(LOG_TAG+"Failed to read the table script.");
     			e.printStackTrace();
     		}
     	}
     	/**/
-    	System.out.println("Successuflly loaded "+tableInMemory.size()+" table(s) into memory." );
+    	System.out.println(LOG_TAG+"Successuflly loaded "+tableInMemory.size()+" table(s) into memory." );
     	for(Entry<String,CopyOnWriteArrayList<Client>> entry: tableInMemory.entrySet()){
-    		System.out.println("    Table "+entry.getKey()+" has "+entry.getValue().size()+" tuple(s)." );
-    		System.out.println("    The hashing structure was built and it has a maximum bucket size of "
+    		System.out.println(LOG_TAG+"    Table "+entry.getKey()+" has "+entry.getValue().size()+" tuple(s)." );
+    		System.out.println(LOG_TAG+"    The hashing structure was built and it has a maximum bucket size of "
     		+hashingObject.get(entry.getKey()).getMaximumBucketSize()+" and a hash base of "+hashingObject.get(entry.getKey()).getHashBase()+"." );
     	}
     	
@@ -198,9 +204,11 @@ class DataManager extends DBKernel implements Runnable {
      * If the buffer is full, it will evict the least recently used record.
      */
     Client readRecordFromBuffer(Short type,String tableName,int ID){
-    	if(dataBuffer.containsKey(ID)){
-    		dataBuffer.get(ID).leastedUsageTimestamp = System.currentTimeMillis();
-    		return dataBuffer.get(ID);
+    	String bufferID = tableName+ID;
+    	if(dataBuffer.containsKey(bufferID)){
+    		//System.err.println(LOG_TAG+"   read operation. buffer contains "+bufferID +" with buffer size "+dataBuffer.size());
+    		dataBuffer.get(bufferID).leastedUsageTimestamp = System.currentTimeMillis();
+    		return dataBuffer.get(bufferID);
     	}else{
     		//fetch this record from database table
     		int index = hashingObject.get(tableName).getIndex(ID);
@@ -208,7 +216,9 @@ class DataManager extends DBKernel implements Runnable {
     			Client client = tableInMemory.get(tableName).get(index);
     			checkBufferStatus();
     			client.leastedUsageTimestamp = System.currentTimeMillis();
-    			dataBuffer.put(tableName+client.ID, client);
+    			bufferID = tableName+client.ID;
+    			dataBuffer.put(bufferID, client);
+    			//System.out.println(LOG_TAG+"   read operation. buffer does not contain "+bufferID +" with buffer size "+dataBuffer.size());
     			return client;
     		}else{
     			//TODO no such record
@@ -256,7 +266,7 @@ class DataManager extends DBKernel implements Runnable {
   			    		tableInMemory.get(tableName).set(i, null);
   			    	}
   			    }
-  			  tableInMemory.get(tableName).set(tclient.ID, tclient);
+  			    tableInMemory.get(tableName).set(tclient.ID, tclient);
     			//mark its existence in hashing object
   			    hashingObject.get(tableName).insert(tclient.ID, tclient.ID);
     			//bring it to the buffer
@@ -266,9 +276,16 @@ class DataManager extends DBKernel implements Runnable {
     	}
     	return false;
     }
-    void deleteAllRecords(String tableName){
-    	//
-    	dataBuffer.clear();
+    void deleteAllRecords(Short type, String tableName){
+    	//remove all the items related to this table in the buffer.
+    	String key = null;
+    	for(Entry<String, Client> entry: dataBuffer.entrySet()){
+    		key = entry.getKey();
+			if(key.startsWith(tableName)){
+				dataBuffer.remove(key);
+				//System.out.println(LOG_TAG+"   delete operation. buffer contains "+key +". delete this item."+dataBuffer.size());
+			}
+		}
     	tableInMemory.get(tableName).clear();
     	hashingObject.get(tableName).clear();
     }
@@ -281,7 +298,7 @@ class DataManager extends DBKernel implements Runnable {
     	}
     }
     void checkBufferStatus(){//TODO A fixed page will not be replaced until it is unfixed.
-    	if(dataBuffer.size() >= 10){//TODO bSize
+    	if(dataBuffer.size() >= bSize){
     		long time = 0;
     		String key = null;
     		for(Entry<String, Client> entry: dataBuffer.entrySet()){
@@ -301,6 +318,7 @@ class DataManager extends DBKernel implements Runnable {
     }
     void writeTransactionLog(String content){
     	transactionLogWriter.println(transactionLogSequenceNumber+" "+content);
+    	transactionLogWriter.flush();
     	transactionLogSequenceNumber = transactionLogSequenceNumber+1;
     }
     void closeLog(){
@@ -379,11 +397,11 @@ class HashIndex{
 				if(overflowBucket.containsKey(ID)){
 					index = overflowBucket.get(ID);
 				}else{
-					System.err.println("Hashing structure does not contain the input client ID -> "+ID);
+					System.err.println(DataManager.LOG_TAG+"Hashing structure does not contain the input client ID -> "+ID);
 				}
 			}
 		}else{
-			System.err.println("Hashing structure does not contain the input client ID -> "+ID);
+			System.err.println(DataManager.LOG_TAG+"Hashing structure does not contain the hash key -> "+key);
 		}
 		return index;
 	}
