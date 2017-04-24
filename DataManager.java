@@ -1,11 +1,11 @@
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -115,15 +115,27 @@ class DataManager extends DBKernel implements Runnable {
             t.start();
         }
     }
+   
     /*
      * Load the table script into memory
      */
-    void loadTableIntoMemory(String tableFilePath){ 
+    static void loadTableIntoMemory(String tableFileDir){ 
+    	File dirFile = new File(tableFileDir);
+    	if(!dirFile.exists()){
+    		System.out.println("The table script directory does not exist.");
+    	}
+    	
+    	File[] listOfFiles = dirFile.listFiles();
+    	for(File file:listOfFiles){
+    		String name = file.getName();
+    		System.out.println(name);
+    	}
+    	/*
     	try {
     		ArrayList<Client> temp = new ArrayList<Client>();
     		int idCounter = 0;
     		//open the table script file
-        	FileInputStream fstream = new FileInputStream(tableFilePath);
+        	FileInputStream fstream = new FileInputStream(tableFileDir);
         	BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
 
         	String tupeLine;
@@ -166,7 +178,7 @@ class DataManager extends DBKernel implements Runnable {
 			System.err.println("Failed to read the table script.");
 			e.printStackTrace();
 		}
-    	
+    	*/
     }
     /*
      * Read a specific record from buffer. If buffer does not hold this record at the moment, it will fetch this record from database table.
@@ -285,6 +297,12 @@ class DataManager extends DBKernel implements Runnable {
     void closeLog(){
     	log1Writer.close();
     	log2Writer.close();
+    }
+    public static void main (String[] args)
+    {
+    	//DataManager manager =new DataManager(null, null, null, null, null, 1, null, new AtomicBoolean(true));
+    	//manager.loadTableIntoMemory("tables");
+    	loadTableIntoMemory("tables");
     }
 
 }
