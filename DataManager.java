@@ -9,7 +9,9 @@ import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
@@ -30,7 +32,7 @@ class DataManager extends DBKernel implements Runnable {
     private PrintWriter transactionLogWriter;
     private long transactionLogSequenceNumber = 1;
     public final static String LOG_TAG = "        DataManager: ";
-    final private AtomicBoolean twopl;
+    final private AtomicBoolean twopl;//true->2pl, false->occ
 
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
     	System.out.println(LOG_TAG+"DataManager initiating... with table directory '"+dir +"' and buffer size "+size);
@@ -75,8 +77,9 @@ class DataManager extends DBKernel implements Runnable {
                     System.out.println(LOG_TAG+"Final operation completed. DM exiting.");
                     return;
                 }
+                //TODO abSet find out which transaction is aborted.
                 //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
-                /**/
+                /*
                 OperationType opType = oper.op;
                 switch (opType) {
                 case Begin:
@@ -108,7 +111,7 @@ class DataManager extends DBKernel implements Runnable {
                 	deleteAllRecords(oper.type,oper.table);
                     break;
                 }
-                
+                */
                 //This must be the last thing done.
                 blSet.remove(oper.tID);
             }
@@ -159,6 +162,7 @@ class DataManager extends DBKernel implements Runnable {
     			  client.ClientName = tupeStrs[1];
     			  client.Phone = tupeStrs[2];
     			  client.areaCode = Integer.parseInt(client.Phone.split("-")[0]);
+    			  client.tableName = name;
     			  if(idCounter<client.ID){
     				  idCounter = client.ID;
     			  }
@@ -190,7 +194,7 @@ class DataManager extends DBKernel implements Runnable {
     			e.printStackTrace();
     		}
     	}
-    	/**/
+    	
     	System.out.println(LOG_TAG+"Successuflly loaded "+tableInMemory.size()+" table(s) into memory." );
     	for(Entry<String,CopyOnWriteArrayList<Client>> entry: tableInMemory.entrySet()){
     		System.out.println(LOG_TAG+"    Table "+entry.getKey()+" has "+entry.getValue().size()+" tuple(s)." );
@@ -239,16 +243,20 @@ class DataManager extends DBKernel implements Runnable {
 		tclient.ClientName = tupeStrs[1];
 		tclient.Phone = tupeStrs[2];
 		tclient.areaCode = Integer.parseInt(tclient.Phone.split("-")[0]);
+		tclient.tableName = tableName;
 		tclient.leastedUsageTimestamp = System.currentTimeMillis();
 		
 		String bufferID = tableName+tclient.ID;
 		
     	if(dataBuffer.containsKey(bufferID)){
-    		//tclient.isDirty = true;
-			dataBuffer.put(bufferID, tclient);
-    		int index = hashingObject.get(tableName).getIndex(tclient.ID);
-    		tableInMemory.get(tableName).set(index, tclient);
     		
+    		if(twopl.get()){//2pl, flush the update to database
+    			int index = hashingObject.get(tableName).getIndex(tclient.ID);
+        		tableInMemory.get(tableName).set(index, tclient);
+    		}else{//occ, keep the change in memory, flush changes when committing
+    			tclient.isDirty = true;
+    		}
+			dataBuffer.put(bufferID, tclient);
 			return true;
     	}else{
     		//fetch this record from database table
@@ -256,9 +264,12 @@ class DataManager extends DBKernel implements Runnable {
     		if(index>0){
     			
     			checkBufferStatus();
-    			
+    			if(twopl.get()){//2pl, flush the update to database
+    				tableInMemory.get(tableName).set(index, tclient);
+        		}else{//occ, keep the change in memory, flush changes when committing
+        			tclient.isDirty = true;
+        		}
     			dataBuffer.put(tableName+tclient.ID, tclient);
-    			tableInMemory.get(tableName).set(index, tclient);
     			return true;
     		}else{
     			// no such record, store this record into database table.
@@ -293,18 +304,26 @@ class DataManager extends DBKernel implements Runnable {
     	tableInMemory.get(tableName).clear();
     	hashingObject.get(tableName).clear();
     }
-    void getAllByArea(String tableName, int areaCode){
-    	//TODO
+    void getAllByArea(short type,String tableName, int areaCode){
+    	HashMap<Integer,Client> list = new HashMap<Integer,Client>();
+    	for(Entry<String, Client> entry: dataBuffer.entrySet()){
+    		if(entry.getValue().areaCode==areaCode){
+    			list.put(entry.getValue().ID, entry.getValue());
+    		}
+    	}
+    	//find all the tuples from buffer and database
     	for(Client client:tableInMemory.get(tableName)){
     		if(client.areaCode==areaCode){
     			//System.out.println (areaCode+"-areaCode--"+client.ID);
+    			list.put(client.ID, client);
     		}
     	}
     }
-    void checkBufferStatus(){//TODO A fixed page will not be replaced until it is unfixed.
+    void checkBufferStatus(){
     	if(dataBuffer.size() >= bSize){
     		long time = 0;
     		String key = null;
+    		//find out the least recently used
     		for(Entry<String, Client> entry: dataBuffer.entrySet()){
     			if(time==0){
     				time = entry.getValue().leastedUsageTimestamp;
@@ -316,7 +335,10 @@ class DataManager extends DBKernel implements Runnable {
         			}
     			}
     		}
-    		//System.out.println ("Evict---"+key);
+    		if(dataBuffer.get(key).isDirty){//if dirty, flush the update to database
+    			tableInMemory.get(dataBuffer.get(key).tableName).set(dataBuffer.get(key).ID, dataBuffer.get(key));
+    		}
+    		//remove the least recently used
     		dataBuffer.remove(key);
     	}
     }
@@ -329,11 +351,6 @@ class DataManager extends DBKernel implements Runnable {
     	debugActionLogWriter.close();
     	transactionLogWriter.close();
     }
-//    public static void main (String[] args)
-//    {
-//    	DataManager manager =new DataManager(null, null, null, null, null, 1, null, new AtomicBoolean(true));
-//    	//loadTableIntoMemory("tables");
-//    }
 
 }
 /*
@@ -347,6 +364,7 @@ class Client{
 	int ID;
 	String ClientName;
 	String Phone;
+	String tableName;
 	
 	int areaCode;
 	//the flag that indicates whether the record has been updated or not.
