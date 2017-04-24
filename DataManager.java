@@ -298,12 +298,12 @@ class DataManager extends DBKernel implements Runnable {
     	log1Writer.close();
     	log2Writer.close();
     }
-    public static void main (String[] args)
-    {
-    	//DataManager manager =new DataManager(null, null, null, null, null, 1, null, new AtomicBoolean(true));
-    	//manager.loadTableIntoMemory("tables");
-    	loadTableIntoMemory("tables");
-    }
+//    public static void main (String[] args)
+//    {
+//    	//DataManager manager =new DataManager(null, null, null, null, null, 1, null, new AtomicBoolean(true));
+//    	//manager.loadTableIntoMemory("tables");
+//    	loadTableIntoMemory("tables");
+//    }
 
 }
 /*
