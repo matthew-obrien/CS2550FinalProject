@@ -108,6 +108,9 @@ class DataManager extends DBKernel implements Runnable {
                 case Commit:
                 	//TODO a transaction can not commit if the transactions it depends on have not commit yet. So dependency graph is needed.
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
+                	if(transactionHistory.containsKey(oper.tID)){
+                		transactionHistory.remove(oper.tID);
+                	}
                     break;
                 case Abort:
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
