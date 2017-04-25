@@ -32,7 +32,10 @@ class DataManager extends DBKernel implements Runnable {
     private PrintWriter transactionLogWriter;
     private long transactionLogSequenceNumber = 1;
     public final static String LOG_TAG = "        DataManager: ";
-    final private AtomicBoolean twopl;//true->2pl, false->occ
+    //records all the transaction history, used for rolling transaction back
+    private HashMap<Integer,Client> transactionHistory;
+    //true->2pl, false->occ
+    final private AtomicBoolean twopl;
 
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
     	System.out.println(LOG_TAG+"DataManager initiating... with table directory '"+dir +"' and buffer size "+size);
@@ -52,9 +55,10 @@ class DataManager extends DBKernel implements Runnable {
         	debugActionLogWriter = new PrintWriter("debugActionLog.log", "UTF-8");
         	transactionLogWriter = new PrintWriter("transactionLog.log", "UTF-8");
 		} catch (FileNotFoundException | UnsupportedEncodingException e) {
-			System.err.println("Failed to read the table script.");
+			System.err.println("Failed to create log files.");
 			e.printStackTrace();
 		} 
+        transactionHistory = new HashMap<Integer,Client>();
     }
 
     @Override
@@ -79,7 +83,7 @@ class DataManager extends DBKernel implements Runnable {
                 }
                 //TODO abSet find out which transaction is aborted.
                 //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
-                /*
+                /**/
                 OperationType opType = oper.op;
                 switch (opType) {
                 case Begin:
@@ -87,31 +91,36 @@ class DataManager extends DBKernel implements Runnable {
                 	writeTransactionLog(oper.type +" "+oper.tID+ " Begin");
                     break;
                 case Read:
+                	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
                 	int ID = Integer.parseInt(oper.value);
                 	readRecordFromBuffer(oper.type,oper.table,ID);
                 	break;
                 case Write:
-                	//writeRecordToBuffer(oper.value);
+                	Client beforeImage = writeRecordToBuffer(oper.type,oper.table,oper.value);
+                	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType +" ("+beforeImage.toString()+") ("+oper.value+")");
                     break;
                 case MRead:
-                	//int areaCode = Integer.parseInt(oper.value);
-                	//getAllByArea(areaCode);
+                	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
+                	int areaCode = Integer.parseInt(oper.value);
+                	getAllByArea(oper.type,oper.table,areaCode);
                     break;
                 case Commit:
                 	//TODO a transaction can not commit if the transactions it depends on have not commit yet. So dependency graph is needed.
+                	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
                     break;
                 case Abort:
-                	//if a transaction is aborted, all the transactions that depend on it must also been aborted. So dependency graph is needed. 
+                	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
+                	//TODO if a transaction is aborted, all the transactions that depend on it must also been aborted. So dependency graph is needed. 
                 	//And Before images must be kept for insuring the full recovery of the previous consistent state.
                 	//Tell TM immediately after an abortion, stopping issuing new transactions.
                     break;
                 case Delete:
                 	//write log
-                	writeTransactionLog(oper.type +" "+oper.tID+ " Begin");
+                	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
                 	deleteAllRecords(oper.type,oper.table);
                     break;
                 }
-                */
+                
                 //This must be the last thing done.
                 blSet.remove(oper.tID);
             }
@@ -235,7 +244,8 @@ class DataManager extends DBKernel implements Runnable {
      * If the buffer is full, it will evict the least recently used record. Write the update back to database after the write.
      */
   
-    boolean writeRecordToBuffer(Short type, String tableName,String record){
+    Client writeRecordToBuffer(Short type, String tableName,String record){
+    	Client beforeImage = null;
         record = record.replace("(","");
     	String[] tupeStrs = record.split(",");
 		Client tclient = new Client();
@@ -247,6 +257,8 @@ class DataManager extends DBKernel implements Runnable {
 		tclient.leastedUsageTimestamp = System.currentTimeMillis();
 		
 		String bufferID = tableName+tclient.ID;
+		//use record in database as before image
+		beforeImage = tableInMemory.get(tableName).get(tclient.ID);
 		
     	if(dataBuffer.containsKey(bufferID)){
     		
@@ -257,7 +269,6 @@ class DataManager extends DBKernel implements Runnable {
     			tclient.isDirty = true;
     		}
 			dataBuffer.put(bufferID, tclient);
-			return true;
     	}else{
     		//fetch this record from database table
     		int index = hashingObject.get(tableName).getIndex(tclient.ID);
@@ -270,7 +281,6 @@ class DataManager extends DBKernel implements Runnable {
         			tclient.isDirty = true;
         		}
     			dataBuffer.put(tableName+tclient.ID, tclient);
-    			return true;
     		}else{
     			// no such record, store this record into database table.
     			//store it to the table
@@ -289,7 +299,7 @@ class DataManager extends DBKernel implements Runnable {
   			    dataBuffer.put(tableName+tclient.ID, tclient);
     		}
     	}
-    	return false;
+    	return beforeImage;
     }
     void deleteAllRecords(Short type, String tableName){
     	//remove all the items related to this table in the buffer.
@@ -374,6 +384,11 @@ class Client{
 	//TODO A fixed page will not be replaced until it is unfixed.
 	int fix =0;
 	public Client(){}
+	@Override
+	public String toString() {
+		return "(" + ID + "," + ClientName + "," + Phone + ")";
+	}
+	
 }
 /*
  * Hashing structure class.    
