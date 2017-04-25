@@ -33,7 +33,7 @@ class DataManager extends DBKernel implements Runnable {
     private long transactionLogSequenceNumber = 1;
     public final static String LOG_TAG = "        DataManager: ";
     //records all the transaction history, used for rolling transaction back
-    private HashMap<Integer,Client> transactionHistory;
+    private HashMap<Integer,HashMap<String,String>> transactionHistory;
     //true->2pl, false->occ
     final private AtomicBoolean twopl;
 
@@ -58,7 +58,7 @@ class DataManager extends DBKernel implements Runnable {
 			System.err.println("Failed to create log files.");
 			e.printStackTrace();
 		} 
-        transactionHistory = new HashMap<Integer,Client>();
+        transactionHistory = new HashMap<Integer,HashMap<String,String>>();
     }
 
     @Override
@@ -83,7 +83,7 @@ class DataManager extends DBKernel implements Runnable {
                 }
                 //TODO abSet find out which transaction is aborted.
                 //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
-                /**/
+                /*
                 OperationType opType = oper.op;
                 switch (opType) {
                 case Begin:
@@ -98,6 +98,7 @@ class DataManager extends DBKernel implements Runnable {
                 case Write:
                 	Client beforeImage = writeRecordToBuffer(oper.type,oper.table,oper.value);
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType +" ("+beforeImage.toString()+") ("+oper.value+")");
+                	recordTransactionHistory(oper.tID, oper.table+"_"+beforeImage.ID, beforeImage.toString());
                     break;
                 case MRead:
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
@@ -120,7 +121,7 @@ class DataManager extends DBKernel implements Runnable {
                 	deleteAllRecords(oper.type,oper.table);
                     break;
                 }
-                
+                */
                 //This must be the last thing done.
                 blSet.remove(oper.tID);
             }
@@ -352,14 +353,36 @@ class DataManager extends DBKernel implements Runnable {
     		dataBuffer.remove(key);
     	}
     }
+    /*
+     * Record transaction logs, a transaction log sequence number being increased by each log item.
+     */
     void writeTransactionLog(String content){
     	transactionLogWriter.println(transactionLogSequenceNumber+" "+content);
     	transactionLogWriter.flush();
     	transactionLogSequenceNumber = transactionLogSequenceNumber+1;
     }
+    /*
+     * Close log file writers' IO stream
+     */
     void closeLog(){
     	debugActionLogWriter.close();
     	transactionLogWriter.close();
+    }
+    /*
+     * record transaction history, find a specific before image  
+     */
+    void recordTransactionHistory(int TID, String tableNameAndPID, String beforeImage){
+    	if(transactionHistory.containsKey(TID)){//if there is a record of this transaction
+    		if(transactionHistory.get(TID).containsKey(tableNameAndPID)){
+    			//do nothing
+    		}else{//store the before image of this modified item
+    			transactionHistory.get(TID).put(tableNameAndPID, beforeImage);
+    		}
+    	}else{//if there is no such a record of this transaction
+    		HashMap<String,String> temp = new HashMap<String,String>();
+    		temp.put(tableNameAndPID, beforeImage);
+    		transactionHistory.put(TID, temp);
+    	}
     }
 
 }
