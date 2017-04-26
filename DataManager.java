@@ -46,13 +46,14 @@ class DataManager extends DBKernel implements Runnable {
     private int AbortedTransactionCounter = 0;
     //3). the percentage of read and write operations, 
     private int ReadOperationCounter = 0;
+    private int MReadOperationCounter = 0;
     private int WriteOperationCounter = 0;
     //4). the average response time of each operation,
     private long AverageReadOperationResponseTime =0;
     private long AverageMReadOperationResponseTime =0;
     private long AverageWriteOperationResponseTime =0;
     private long AverageDeleteOperationResponseTime =0;
-    //5). the average execution time for each committed transaction.//TODO
+    //5). the average execution time for each committed transaction.
     private long AverageTransactionExecutionTime =0;
     private HashMap<Integer,Long> transactionRecorder;
     //TODO when a table does not exist, send an abort??????
@@ -173,7 +174,7 @@ class DataManager extends DBKernel implements Runnable {
                 	int areaCode = Integer.parseInt(oper.value);
                 	writeDebugLog(oper.type +" "+oper.table+ " "+oper.value);
                 	getAllByArea(oper.type,oper.table,areaCode);
-                	ReadOperationCounter = ReadOperationCounter+1;//TODO 
+                	MReadOperationCounter = MReadOperationCounter+1; 
                 	//record average mread operation response time
                     long mets = System.currentTimeMillis();
                     long mdisp = mets - bts ;
