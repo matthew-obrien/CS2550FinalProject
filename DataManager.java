@@ -24,7 +24,7 @@ class DataManager extends DBKernel implements Runnable {
     final private String filesDir;
     final private int bSize;
     //data structure that stores testing table content
-    private HashMap <String,CopyOnWriteArrayList<Client>> tableInMemory;
+    private HashMap <String,ArrayList<Client>> tableInMemory;
     //data buffer object, a hash map with key being TableName+ID and value being tuple
     private HashMap<String,Client> dataBuffer;
     private HashMap<String,HashIndex> hashingObject;
@@ -46,7 +46,7 @@ class DataManager extends DBKernel implements Runnable {
         abSet = abSetIn;
         filesDir = dir;
         bSize = size;
-        tableInMemory = new HashMap <String,CopyOnWriteArrayList<Client>>();
+        tableInMemory = new HashMap <String,ArrayList<Client>>();
         hashingObject = new HashMap<String,HashIndex>();
         loadTableIntoMemory(filesDir);
         dataBuffer = new HashMap<String,Client>();
@@ -82,8 +82,8 @@ class DataManager extends DBKernel implements Runnable {
                     return;
                 }
                 //TODO abSet find out which transaction is aborted.
-                //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
-                /*
+                /**/
+                System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
                 OperationType opType = oper.op;
                 switch (opType) {
                 case Begin:
@@ -96,9 +96,16 @@ class DataManager extends DBKernel implements Runnable {
                 	readRecordFromBuffer(oper.type,oper.table,ID);
                 	break;
                 case Write:
+                	//before image could be null, because this operation could be happening after all the previous records had been deleted
                 	Client beforeImage = writeRecordToBuffer(oper.type,oper.table,oper.value);
-                	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType +" ("+beforeImage.toString()+") ("+oper.value+")");
-                	recordTransactionHistory(oper.tID, oper.table+"_"+beforeImage.ID, beforeImage.toString());
+                	if(beforeImage==null){
+                		writeTransactionLog(oper.type +" "+oper.tID+ " "+opType +" (none) "+oper.value+"");
+                		recordTransactionHistory(oper.tID, "none", "none");
+                	}else{
+                		writeTransactionLog(oper.type +" "+oper.tID+ " "+opType +" "+beforeImage.toString()+" "+oper.value+"");
+                		recordTransactionHistory(oper.tID, oper.table+"_"+beforeImage.ID, beforeImage.toString());
+                	}
+                	
                     break;
                 case MRead:
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
@@ -124,7 +131,7 @@ class DataManager extends DBKernel implements Runnable {
                 	deleteAllRecords(oper.type,oper.table);
                     break;
                 }
-                */
+                
                 //This must be the last thing done.
                 blSet.remove(oper.tID);
             }
@@ -156,7 +163,7 @@ class DataManager extends DBKernel implements Runnable {
     		String name = file.getName();
     		name = name.substring(0, name.lastIndexOf("."));
     		System.out.println(LOG_TAG+"Loading table "+name + " into memory.");
-    		tableInMemory.put(name, new CopyOnWriteArrayList<Client>());
+    		tableInMemory.put(name, new ArrayList<Client>());
     		hashingObject.put(name, new HashIndex());
     		try {
         		ArrayList<Client> temp = new ArrayList<Client>();
@@ -209,7 +216,7 @@ class DataManager extends DBKernel implements Runnable {
     	}
     	
     	System.out.println(LOG_TAG+"Successuflly loaded "+tableInMemory.size()+" table(s) into memory." );
-    	for(Entry<String,CopyOnWriteArrayList<Client>> entry: tableInMemory.entrySet()){
+    	for(Entry<String,ArrayList<Client>> entry: tableInMemory.entrySet()){
     		System.out.println(LOG_TAG+"    Table "+entry.getKey()+" has "+entry.getValue().size()+" tuple(s)." );
     		System.out.println(LOG_TAG+"    The hashing structure was built and it has a maximum bucket size of "
     		+hashingObject.get(entry.getKey()).getMaximumBucketSize()+" and a hash base of "+hashingObject.get(entry.getKey()).getHashBase()+"." );
@@ -261,11 +268,12 @@ class DataManager extends DBKernel implements Runnable {
 		tclient.leastedUsageTimestamp = System.currentTimeMillis();
 		
 		String bufferID = tableName+tclient.ID;
-		//use record in database as before image
-		beforeImage = tableInMemory.get(tableName).get(tclient.ID);
+		
 		
     	if(dataBuffer.containsKey(bufferID)){
-    		
+    		//use record in database as before image
+        	beforeImage = tableInMemory.get(tableName).get(tclient.ID);
+        	
     		if(twopl.get()){//2pl, flush the update to database
     			int index = hashingObject.get(tableName).getIndex(tclient.ID);
         		tableInMemory.get(tableName).set(index, tclient);
@@ -277,6 +285,8 @@ class DataManager extends DBKernel implements Runnable {
     		//fetch this record from database table
     		int index = hashingObject.get(tableName).getIndex(tclient.ID);
     		if(index>0){
+    			//use record in database as before image
+    	    	beforeImage = tableInMemory.get(tableName).get(tclient.ID);
     			
     			checkBufferStatus();
     			if(twopl.get()){//2pl, flush the update to database
@@ -289,10 +299,11 @@ class DataManager extends DBKernel implements Runnable {
     			// no such record, store this record into database table.
     			//store it to the table
     			
-  			    if(tableInMemory.size()<tclient.ID){
-  			    	int tsize = tableInMemory.size()+1;
-  			    	for(int i=tsize;i<tclient.ID;i++){
-  			    		tableInMemory.get(tableName).set(i, null);
+  			    if(tableInMemory.get(tableName).size()<=tclient.ID){
+  			    	int tsize = tableInMemory.get(tableName).size();
+  			    	System.out.println(LOG_TAG+"   "+tsize +".."+tclient.ID);
+  			    	for(int i=tsize;i<=tclient.ID;i++){
+  			    		tableInMemory.get(tableName).add(i, null);
   			    	}
   			    }
   			    tableInMemory.get(tableName).set(tclient.ID, tclient);
@@ -303,18 +314,23 @@ class DataManager extends DBKernel implements Runnable {
   			    dataBuffer.put(tableName+tclient.ID, tclient);
     		}
     	}
+    	
     	return beforeImage;
     }
     void deleteAllRecords(Short type, String tableName){
     	//remove all the items related to this table in the buffer.
     	String key = null;
+    	ArrayList<String> tlist = new ArrayList<String>();
     	for(Entry<String, Client> entry: dataBuffer.entrySet()){
     		key = entry.getKey();
 			if(key.startsWith(tableName)){
-				dataBuffer.remove(key);
+				tlist.add(key);
 				//System.out.println(LOG_TAG+"   delete operation. buffer contains "+key +". delete this item."+dataBuffer.size());
 			}
 		}
+    	for(String str:tlist){
+    		dataBuffer.remove(str);
+    	}
     	tableInMemory.get(tableName).clear();
     	hashingObject.get(tableName).clear();
     }
@@ -327,9 +343,11 @@ class DataManager extends DBKernel implements Runnable {
     	}
     	//find all the tuples from buffer and database
     	for(Client client:tableInMemory.get(tableName)){
-    		if(client.areaCode==areaCode){
-    			//System.out.println (areaCode+"-areaCode--"+client.ID);
-    			list.put(client.ID, client);
+    		if(client!=null){
+    			if(client.areaCode==areaCode){
+        			//System.out.println (areaCode+"-areaCode--"+client.ID);
+        			list.put(client.ID, client);
+        		}
     		}
     	}
     }
