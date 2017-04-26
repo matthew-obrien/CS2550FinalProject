@@ -83,12 +83,24 @@ class DataManager extends DBKernel implements Runnable {
                     System.out.println(LOG_TAG+"Final operation completed. DM exiting.");
                     return;
                 }
-                //TODO abSet find out which transaction is aborted.
-                //TODO if a transaction is aborted, all the transactions that depend on it must also been aborted. So dependency graph is needed. 
-            	//And Before images must be kept for insuring the full recovery of the previous consistent state.
-            	//Tell TM immediately after an abortion, stopping issuing new transactions.
+                
+                //This is to remain you that each team should provide a log that records 
+                //1). the number of committed transactions, 
+                //2). the number of aborted transactions, 
+                //3). the percentage of read and write operations, 
+                //4). the average response time of each operation, 
+                //5). the average execution time for each committed transaction. 
                 /**/
-                System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
+                //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
+                
+                //listen to the 'abSet' if there are transactions have be aborted
+                if(abSet.size()>0){
+                	while(!abSet.isEmpty()){
+                		int tid = abSet.pollFirst();
+                		//rollback the transaction
+                    	recoverFromAbort(tid);
+                	}
+                }
                 OperationType opType = oper.op;
                 switch (opType) {
                 case Begin:
@@ -124,7 +136,6 @@ class DataManager extends DBKernel implements Runnable {
                 	getAllByArea(oper.type,oper.table,areaCode);
                     break;
                 case Commit:
-                	//TODO a transaction can not commit if the transactions it depends on have not commit yet. So dependency graph is needed.
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
                 	if(transactionHistory.containsKey(oper.tID)){
                 		transactionHistory.remove(oper.tID);
@@ -317,7 +328,7 @@ class DataManager extends DBKernel implements Runnable {
     			
   			    if(tableInMemory.get(tableName).size()<=tclient.ID){
   			    	int tsize = tableInMemory.get(tableName).size();
-  			    	System.out.println(LOG_TAG+"   "+tsize +".."+tclient.ID);
+  			    	//System.out.println(LOG_TAG+"   "+tsize +".."+tclient.ID);
   			    	for(int i=tsize;i<=tclient.ID;i++){
   			    		tableInMemory.get(tableName).add(i, null);
   			    	}
