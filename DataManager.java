@@ -36,6 +36,8 @@ class DataManager extends DBKernel implements Runnable {
     private HashMap<Integer,HashMap<String,String>> transactionHistory;
     //true->2pl, false->occ
     final private AtomicBoolean twopl;
+    
+    final static String NONE = "none";
 
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
     	System.out.println(LOG_TAG+"DataManager initiating... with table directory '"+dir +"' and buffer size "+size);
@@ -82,6 +84,9 @@ class DataManager extends DBKernel implements Runnable {
                     return;
                 }
                 //TODO abSet find out which transaction is aborted.
+                //TODO if a transaction is aborted, all the transactions that depend on it must also been aborted. So dependency graph is needed. 
+            	//And Before images must be kept for insuring the full recovery of the previous consistent state.
+            	//Tell TM immediately after an abortion, stopping issuing new transactions.
                 /**/
                 System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
                 OperationType opType = oper.op;
@@ -92,24 +97,30 @@ class DataManager extends DBKernel implements Runnable {
                     break;
                 case Read:
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
+                	writeDebugLog(oper.type +" "+oper.table+ " "+oper.value);
                 	int ID = Integer.parseInt(oper.value);
-                	readRecordFromBuffer(oper.type,oper.table,ID);
+                	Client client = readRecordFromBuffer(oper.type,oper.table,ID);
+                	if(client!=null){
+                		writeDebugLog("Read:"+client.toString());
+                	}
                 	break;
                 case Write:
                 	//before image could be null, because this operation could be happening after all the previous records had been deleted
                 	Client beforeImage = writeRecordToBuffer(oper.type,oper.table,oper.value);
                 	if(beforeImage==null){
-                		writeTransactionLog(oper.type +" "+oper.tID+ " "+opType +" (none) "+oper.value+"");
-                		recordTransactionHistory(oper.tID, "none", "none");
+                		writeTransactionLog(oper.type +" "+oper.tID+ " "+opType +" ("+NONE+") "+oper.value+"");
+                		recordTransactionHistory(oper.tID, NONE, NONE);
                 	}else{
                 		writeTransactionLog(oper.type +" "+oper.tID+ " "+opType +" "+beforeImage.toString()+" "+oper.value+"");
                 		recordTransactionHistory(oper.tID, oper.table+"_"+beforeImage.ID, beforeImage.toString());
                 	}
-                	
+                	writeDebugLog(oper.type +" "+oper.table+ " "+oper.value);
+                	//writeDebugLog("Inserted:"+oper.value);
                     break;
                 case MRead:
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
                 	int areaCode = Integer.parseInt(oper.value);
+                	writeDebugLog(oper.type +" "+oper.table+ " "+oper.value);
                 	getAllByArea(oper.type,oper.table,areaCode);
                     break;
                 case Commit:
@@ -120,15 +131,17 @@ class DataManager extends DBKernel implements Runnable {
                 	}
                     break;
                 case Abort:
+                	//write log
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
-                	//TODO if a transaction is aborted, all the transactions that depend on it must also been aborted. So dependency graph is needed. 
-                	//And Before images must be kept for insuring the full recovery of the previous consistent state.
-                	//Tell TM immediately after an abortion, stopping issuing new transactions.
+                	//rollback the transaction
+                	recoverFromAbort(oper.tID);
                     break;
                 case Delete:
                 	//write log
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
+                	writeDebugLog(oper.type +" "+oper.table);
                 	deleteAllRecords(oper.type,oper.table);
+                	writeDebugLog("Deleted:"+oper.table);
                     break;
                 }
                 
@@ -242,10 +255,11 @@ class DataManager extends DBKernel implements Runnable {
     			client.leastedUsageTimestamp = System.currentTimeMillis();
     			bufferID = tableName+client.ID;
     			dataBuffer.put(bufferID, client);
+    			writeDebugLog("SWAP IN T-"+tableName+ " P-"+ID+ " P-"+bufferID);
     			//System.out.println(LOG_TAG+"   read operation. buffer does not contain "+bufferID +" with buffer size "+dataBuffer.size());
     			return client;
     		}else{
-    			//TODO no such record
+    			//TODO no such record. send an abort ack
     		}
     	}
     	return null;
@@ -258,6 +272,7 @@ class DataManager extends DBKernel implements Runnable {
     Client writeRecordToBuffer(Short type, String tableName,String record){
     	Client beforeImage = null;
         record = record.replace("(","");
+        record = record.replace(")","");
     	String[] tupeStrs = record.split(",");
 		Client tclient = new Client();
 		tclient.ID = Integer.parseInt(tupeStrs[0]);
@@ -295,6 +310,7 @@ class DataManager extends DBKernel implements Runnable {
         			tclient.isDirty = true;
         		}
     			dataBuffer.put(tableName+tclient.ID, tclient);
+    			writeDebugLog("SWAP IN T-"+tableName+ " P-"+tclient.ID+ " P-"+bufferID);
     		}else{
     			// no such record, store this record into database table.
     			//store it to the table
@@ -306,12 +322,14 @@ class DataManager extends DBKernel implements Runnable {
   			    		tableInMemory.get(tableName).add(i, null);
   			    	}
   			    }
+  			    writeDebugLog("CREATE T-"+tableName+ " P-"+tclient.ID+ " P-"+bufferID);
   			    tableInMemory.get(tableName).set(tclient.ID, tclient);
     			//mark its existence in hashing object
   			    hashingObject.get(tableName).insert(tclient.ID, tclient.ID);
     			//bring it to the buffer
   			    checkBufferStatus();
   			    dataBuffer.put(tableName+tclient.ID, tclient);
+  			    writeDebugLog("Inserted: T-"+tableName+ " P-"+tclient.ID+ " P-"+bufferID);
     		}
     	}
     	
@@ -350,6 +368,13 @@ class DataManager extends DBKernel implements Runnable {
         		}
     		}
     	}
+    	writeDebugLog(type +" "+tableName+ " AreaCode:"+areaCode);
+    	for(Entry<Integer,Client> entry: list.entrySet()){
+    		Client client = entry.getValue();
+    		if(client!=null){
+    			writeDebugLog(type +" "+tableName+ " "+client.toString());
+    		}
+    	}
     }
     void checkBufferStatus(){
     	if(dataBuffer.size() >= bSize){
@@ -370,8 +395,10 @@ class DataManager extends DBKernel implements Runnable {
     		if(dataBuffer.get(key).isDirty){//if dirty, flush the update to database
     			tableInMemory.get(dataBuffer.get(key).tableName).set(dataBuffer.get(key).ID, dataBuffer.get(key));
     		}
+    		writeDebugLog("SWAP OUT T-"+dataBuffer.get(key).tableName+ " P-"+dataBuffer.get(key).ID+ " P-"+key);
     		//remove the least recently used
     		dataBuffer.remove(key);
+    		
     	}
     }
     /*
@@ -405,7 +432,35 @@ class DataManager extends DBKernel implements Runnable {
     		transactionHistory.put(TID, temp);
     	}
     }
-
+    /*
+     * rollback all the operations in this transaction  
+     */
+    void recoverFromAbort(int TID){
+    	if(transactionHistory.containsKey(TID)){
+    		for(Entry<String,String> entry: transactionHistory.get(TID).entrySet()){
+    			String key = entry.getKey();
+    			String value = entry.getValue();
+    			if(!key.equals(NONE)){
+    				String strs[] = key.split("_");
+    				String record = value;
+    				record = record.replace("(","");
+    		        record = record.replace(")","");
+    		    	String[] tupeStrs = record.split(",");
+    				Client tclient = new Client();
+    				tclient.ID = Integer.parseInt(tupeStrs[0]);
+    				tclient.ClientName = tupeStrs[1];
+    				tclient.Phone = tupeStrs[2];
+    				tclient.areaCode = Integer.parseInt(tclient.Phone.split("-")[0]);
+    				tclient.tableName = strs[0];
+    				tableInMemory.get(tclient.tableName).set(tclient.ID , tclient);
+    			}
+    		}
+    	}
+    }
+    void writeDebugLog(String content){
+    	debugActionLogWriter.println(content);
+    	debugActionLogWriter.flush();
+    }
 }
 /*
  * Table schema.    
@@ -425,7 +480,7 @@ class Client{
 	boolean isDirty = false;
 	//the time stamp that indicates when this record was mostly recently used.
 	long leastedUsageTimestamp = 0;
-	//TODO A fixed page will not be replaced until it is unfixed.
+	//A fixed page will not be replaced until it is unfixed.
 	int fix =0;
 	public Client(){}
 	@Override
