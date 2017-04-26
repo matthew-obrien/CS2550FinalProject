@@ -27,6 +27,7 @@ class TransactionManager extends DBKernel implements Runnable {
     private boolean[] reads; 
     private int readsInd = 0;
     
+    //<Matthew O'Brien>
     TransactionManager(String name, LinkedBlockingQueue<dbOp> q1, ConcurrentSkipListSet<Integer> blSetIn, String dir, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
         threadName = name;
         tmsc = q1;
@@ -58,11 +59,13 @@ class TransactionManager extends DBKernel implements Runnable {
             reads[i] = true;
         }
     }
+    //</Matthew O'Brien>
 
     @Override
     public void run() {
         try {
             loadScripts();
+            //<Matthew O'Brien>
             int i = 0; //initialize it now. Doesn't matter for random, but round robin needs to persist.
             while(!loadedScripts.isEmpty())
             { 
@@ -113,6 +116,11 @@ class TransactionManager extends DBKernel implements Runnable {
                     //now get the operation and act
                     LinkedList<dbOp> opers = loadedScripts.get(i);
                     dbOp oper = opers.poll();
+                    if(abSet.contains(oper.tID))//then the transaction has been scheduled for early abort.
+                    {
+                        while(oper.op != OperationType.Commit && oper.op != OperationType.Abort) oper = opers.poll(); //go until the commit or abort
+                        oper.op = OperationType.Abort;
+                    }
                     operation = oper.op;
                     blSet.add(oper.tID);
                     tIDMappings[i] = oper.tID;
@@ -168,6 +176,15 @@ class TransactionManager extends DBKernel implements Runnable {
                     //now get the operation and stuff
                     LinkedList<dbOp> opers = loadedScripts.get(i);
                     dbOp oper = opers.poll();
+                    if(abSet.contains(oper.tID))//then the transaction has been scheduled for early abort.
+                    {
+                        
+                        while(oper.op != OperationType.Commit && oper.op != OperationType.Abort) 
+                        {
+                            oper = opers.poll(); //go until the commit or abort
+                        }
+                        oper.op = OperationType.Abort;
+                    }
                     operation = oper.op;
                     blSet.add(oper.tID);
                     tIDMappings[i] = oper.tID;
@@ -230,6 +247,7 @@ class TransactionManager extends DBKernel implements Runnable {
         } catch (Exception ex) {
             Logger.getLogger(TransactionManager.class.getName()).log(Level.SEVERE, null, ex);
         }
+        //</Matthew O'Brien>
     }
 
     public void start() {
@@ -304,6 +322,7 @@ class TransactionManager extends DBKernel implements Runnable {
         return op;
     }
     
+    //<Matthew O'Brien>
     private boolean mostlyReads() //if there are enough reads in the buffer to switch modes.
     {
         int count = 0;
@@ -325,4 +344,5 @@ class TransactionManager extends DBKernel implements Runnable {
         if(count < 8) return true;
         return false;
     }
+    //</Matthew O'Brien>
 }

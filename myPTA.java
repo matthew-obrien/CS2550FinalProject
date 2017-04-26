@@ -2,6 +2,7 @@ import java.util.concurrent.*;
 import java.util.Date;
 import java.util.concurrent.atomic.*;
 
+//<Matthew O'Brien>
 public class myPTA
 {
     public static void main (String[] args)
@@ -68,9 +69,10 @@ public class myPTA
         dm.start();
     }
 }
+//</Matthew O'Brien>
 
 /*
-||APPENDIX||
+||APPENDIX||~Matthew O'Brien
 
 |NOTES|
 1 - The blockingSet is the data structure used for operation series synchronization. Essentially, we don't want the TM to send multiple operations from the same

@@ -2,6 +2,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.*;
 
+//<Matthew O'Brien>
 class Scheduler extends DBKernel implements Runnable {
 
     final private LinkedBlockingQueue<dbOp> tmsc;
@@ -27,8 +28,7 @@ class Scheduler extends DBKernel implements Runnable {
     @Override
     public void run() {
         try {
-            //Carefull with the race condition here. If th sc get something and nothing new is added
-            //it will break out of the loop. Maybe a external control thread initiated in main?
+            
             while(true)
             {
                 dbOp oper = tmsc.take();
@@ -45,6 +45,7 @@ class Scheduler extends DBKernel implements Runnable {
                     scdm.add(oper);
                     return;
                 }
+                //</Matthew O'Brien
                 //System.out.println("\nSC has received the following operation:\n"+oper);
                 if(twopl.get())
                 {
@@ -53,6 +54,7 @@ class Scheduler extends DBKernel implements Runnable {
                 }
                 else
                 {
+                    //<Matthew O'Brien>
                     //handle as optimistic, using 2PL certifier
                     OperationType opType = oper.op;
                     HashSet<String> readSet;
@@ -207,6 +209,7 @@ class Scheduler extends DBKernel implements Runnable {
                             //and that's it, send it along
                             scdm.add(oper);
                             break;
+                        //</Matthew O'Brien>
                     }
                     
                 }
@@ -227,7 +230,7 @@ class Scheduler extends DBKernel implements Runnable {
         }
     }
     
-    private String getValueFromWrite(dbOp oper)
+    private String getValueFromWrite(dbOp oper) //Matthew O'Brien
     {
         if(oper.op != OperationType.Write)
         {

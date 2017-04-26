@@ -1,4 +1,4 @@
-public class dbOp
+public class dbOp //Matthew O'Brien and Henrique Potter
 {
     public int tID; //transaction or process ID. Strictly increasing starting at 0 with the first transaction.
     public short type; //0 or 1. O indicates a process, 1 indicates a transaction.
