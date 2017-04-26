@@ -38,7 +38,20 @@ class DataManager extends DBKernel implements Runnable {
     final private AtomicBoolean twopl;
     
     final static String NONE = "none";
-
+    
+    //This is to remain you that each team should provide a log that records
+    //1). the number of committed transactions, 
+    private int CommittedTransactionCounter = 0;
+    //2). the number of aborted transactions, 
+    private int AbortedTransactionCounter = 0;
+    //3). the percentage of read and write operations, 
+    private int ReadOperationCounter = 0;
+    private int WriteOperationCounter = 0;
+    //4). the average response time of each operation,
+    private long AverageOperationResponseTime =0;
+    //5). the average execution time for each committed transaction.//TODO
+    private long AverageTransactionExecutionTime =0;
+    //TODO when a table does not exist, send an abort??????
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
     	System.out.println(LOG_TAG+"DataManager initiating... with table directory '"+dir +"' and buffer size "+size);
     	threadName = name;
@@ -69,6 +82,7 @@ class DataManager extends DBKernel implements Runnable {
         try {
             while(true)
             {
+            	long bts = System.currentTimeMillis();
                 dbOp oper = scdm.take();
                 ///*if(oper.op == OperationType.Begin)*/ System.out.println("\nDM has received the following operation:\n"+oper);
                 
@@ -84,12 +98,6 @@ class DataManager extends DBKernel implements Runnable {
                     return;
                 }
                 
-                //This is to remain you that each team should provide a log that records 
-                //1). the number of committed transactions, 
-                //2). the number of aborted transactions, 
-                //3). the percentage of read and write operations, 
-                //4). the average response time of each operation, 
-                //5). the average execution time for each committed transaction. 
                 /**/
                 //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
                 
@@ -115,6 +123,7 @@ class DataManager extends DBKernel implements Runnable {
                 	if(client!=null){
                 		writeDebugLog("Read:"+client.toString());
                 	}
+                	ReadOperationCounter = ReadOperationCounter+1;
                 	break;
                 case Write:
                 	//before image could be null, because this operation could be happening after all the previous records had been deleted
@@ -128,18 +137,21 @@ class DataManager extends DBKernel implements Runnable {
                 	}
                 	writeDebugLog(oper.type +" "+oper.table+ " "+oper.value);
                 	//writeDebugLog("Inserted:"+oper.value);
+                	WriteOperationCounter = WriteOperationCounter+1;
                     break;
                 case MRead:
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
                 	int areaCode = Integer.parseInt(oper.value);
                 	writeDebugLog(oper.type +" "+oper.table+ " "+oper.value);
                 	getAllByArea(oper.type,oper.table,areaCode);
+                	ReadOperationCounter = ReadOperationCounter+1;//TODO 
                     break;
                 case Commit:
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
                 	if(transactionHistory.containsKey(oper.tID)){
                 		transactionHistory.remove(oper.tID);
                 	}
+                	CommittedTransactionCounter = CommittedTransactionCounter+1;
                     break;
                 case Abort:
                 	//write log
@@ -154,6 +166,14 @@ class DataManager extends DBKernel implements Runnable {
                 	deleteAllRecords(oper.type,oper.table);
                 	writeDebugLog("Deleted:"+oper.table);
                     break;
+                }
+                //record average operation response time
+                long ets = System.currentTimeMillis();
+                long disp = ets - bts ;
+                if(AverageOperationResponseTime==0){
+                	AverageOperationResponseTime = disp;
+                }else{
+                	AverageOperationResponseTime = (AverageOperationResponseTime+disp)/2;
                 }
                 
                 //This must be the last thing done.
@@ -448,6 +468,7 @@ class DataManager extends DBKernel implements Runnable {
      */
     void recoverFromAbort(int TID){
     	if(transactionHistory.containsKey(TID)){
+    		AbortedTransactionCounter = AbortedTransactionCounter+1;
     		for(Entry<String,String> entry: transactionHistory.get(TID).entrySet()){
     			String key = entry.getKey();
     			String value = entry.getValue();
