@@ -50,11 +50,16 @@ class DataManager extends DBKernel implements Runnable {
     private int WriteOperationCounter = 0;
     //4). the average response time of each operation,
     private long AverageReadOperationResponseTime =0;
+    private int AverageReadOperationResponseTimeCounter =0;
     private long AverageMReadOperationResponseTime =0;
+    private int AverageMReadOperationResponseTimeCounter =0;
     private long AverageWriteOperationResponseTime =0;
+    private int AverageWriteOperationResponseTimeCounter =0;
     private long AverageDeleteOperationResponseTime =0;
+    private int AverageDeleteOperationResponseTimeCounter =0;
     //5). the average execution time for each committed transaction.
     private long AverageTransactionExecutionTime =0;
+    private long AverageTransactionExecutionTimeCounter =0;
     private HashMap<Integer,Long> transactionRecorder;
     //TODO when a table does not exist, send an abort??????
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
@@ -133,12 +138,8 @@ class DataManager extends DBKernel implements Runnable {
                 	//record average read operation response time
                     long ets = System.currentTimeMillis();
                     long disp = ets - bts ;
-                    if(AverageReadOperationResponseTime==0){
-                    	AverageReadOperationResponseTime = disp;
-                    }else{
-                    	AverageReadOperationResponseTime = (AverageReadOperationResponseTime+disp)/2;
-                    }
-                    
+                    AverageReadOperationResponseTime = AverageReadOperationResponseTime+disp;
+                    AverageReadOperationResponseTimeCounter = AverageReadOperationResponseTimeCounter+1;
                 	if(client!=null){
                 		writeDebugLog("Read:"+client.toString());
                 	}
@@ -159,11 +160,8 @@ class DataManager extends DBKernel implements Runnable {
                 	//record average write operation response time
                     long wets = System.currentTimeMillis();
                     long wdisp = wets - bts ;
-                    if(AverageWriteOperationResponseTime==0){
-                    	AverageWriteOperationResponseTime = wdisp;
-                    }else{
-                    	AverageWriteOperationResponseTime = (AverageWriteOperationResponseTime+wdisp)/2;
-                    }
+                    AverageWriteOperationResponseTime = AverageWriteOperationResponseTime+wdisp;
+                    AverageWriteOperationResponseTimeCounter=AverageWriteOperationResponseTimeCounter+1;
                 	
                 	writeDebugLog(oper.type +" "+oper.table+ " "+oper.value);
                 	//writeDebugLog("Inserted:"+oper.value);
@@ -178,11 +176,8 @@ class DataManager extends DBKernel implements Runnable {
                 	//record average mread operation response time
                     long mets = System.currentTimeMillis();
                     long mdisp = mets - bts ;
-                    if(AverageMReadOperationResponseTime==0){
-                    	AverageMReadOperationResponseTime = mdisp;
-                    }else{
-                    	AverageMReadOperationResponseTime = (AverageMReadOperationResponseTime+mdisp)/2;
-                    }
+                    AverageMReadOperationResponseTime = AverageMReadOperationResponseTime+mdisp;
+                    AverageMReadOperationResponseTimeCounter = AverageMReadOperationResponseTimeCounter+1;
                     break;
                 case Commit:
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
@@ -195,11 +190,8 @@ class DataManager extends DBKernel implements Runnable {
                 	long startedTime = transactionRecorder.get(oper.tID);
                 	long cTime = System.currentTimeMillis();
                 	long dispendency = cTime-startedTime;
-                	if(AverageTransactionExecutionTime==0){
-                		AverageTransactionExecutionTime = dispendency;
-                	}else{
-                		AverageTransactionExecutionTime = (AverageTransactionExecutionTime+dispendency)/2;
-                	}
+                	AverageTransactionExecutionTime = AverageTransactionExecutionTime+dispendency;
+                	AverageTransactionExecutionTimeCounter = AverageTransactionExecutionTimeCounter+1;
                     break;
                 case Abort:
                 	//write log
@@ -216,12 +208,8 @@ class DataManager extends DBKernel implements Runnable {
                 	//record average delete operation response time
                     long dets = System.currentTimeMillis();
                     long ddisp = dets - bts ;
-                    if(AverageDeleteOperationResponseTime==0){
-                    	AverageDeleteOperationResponseTime = ddisp;
-                    }else{
-                    	AverageDeleteOperationResponseTime = (AverageDeleteOperationResponseTime+ddisp)/2;
-                    }
-                	
+                    AverageDeleteOperationResponseTime = AverageDeleteOperationResponseTime+ddisp;
+                    AverageDeleteOperationResponseTimeCounter = AverageDeleteOperationResponseTimeCounter+1;
                 	writeDebugLog("Deleted:"+oper.table);
                     break;
                 }
