@@ -518,8 +518,8 @@ class DataManager extends DBKernel implements Runnable {
     void writeStatisticsLog(){
     	StringBuilder strBuilder = new StringBuilder();
     	strBuilder.append("                Database Statistics\n");
-    	strBuilder.append("The number of Committed Transaction is: "+CommittedTransactionCounter+".\n");
-    	strBuilder.append("The number of aborted Transaction is: "+AbortedTransactionCounter+".\n");
+    	//strBuilder.append("The number of Committed Transaction is: "+CommittedTransactionCounter+".\n");
+    	//strBuilder.append("The number of aborted Transaction is: "+AbortedTransactionCounter+".\n");
     	int rwnumber = 1;
     	rwnumber =  ReadOperationCounter+ MReadOperationCounter +WriteOperationCounter ;
     	float percent = (ReadOperationCounter * 100.0f) / rwnumber;
