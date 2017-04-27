@@ -562,7 +562,6 @@ class DataManager extends DBKernel implements Runnable {
         	strBuilder.append("The average response time of Delete operation is: "+seconds+".\n");
     	}
     	
-    	
     	if(AverageTransactionExecutionTimeCounter==0){
     		strBuilder.append("The average execution time for each committed transaction is: "+0+".\n");
     	}else{
