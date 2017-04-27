@@ -615,7 +615,7 @@ class DataManager extends DBKernel implements Runnable {
     	strBuilder.append("The total number of operations (only for R, M, W, and D) of committed transactions: "+numOfCommittedTransactionOperations+".\n");
     	strBuilder.append("The total number of operations (only for R, M, W, and D) of committed processes: "+numOfCommittedProcesseOperations+".\n");
     	strBuilder.append("The total number of operations (only for R, M, W, and D) of aborted transactions: "+numOfAbortedTransactionOperations+".\n");
-    	strBuilder.append("The total number of operations (only for R, M, W, and D) of committed processes: "+numOfAbortededProcesseOperations+".\n");
+    	strBuilder.append("The total number of operations (only for R, M, W, and D) of aborted processes: "+numOfAbortededProcesseOperations+".\n");
     	System.out.println(strBuilder.toString());
     	statisticLogWriter.println(strBuilder.toString());
     	statisticLogWriter.flush();
