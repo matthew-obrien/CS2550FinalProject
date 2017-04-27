@@ -5,6 +5,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.LinkedBlockingQueue;
 import org.jgraph.graph.DefaultEdge;
 import org.jgrapht.DirectedGraph;
@@ -27,26 +29,22 @@ public class TwoPhaseLock {
     final private HashMap<String, LockInfo> lockTable;
 
     final private ArrayList<dbOp> operationsWaitingforLocks = new ArrayList<>();
+    final private ConcurrentSkipListSet<Integer> blockingSet;
+    final private ConcurrentSkipListSet<Integer> abortingSet;
 
-    public TwoPhaseLock(LinkedBlockingQueue<dbOp> scdm) {
+    public TwoPhaseLock(LinkedBlockingQueue<dbOp> scdm, ConcurrentSkipListSet<Integer> blSet, ConcurrentSkipListSet<Integer> aSet) {
         this.scdm = scdm;
-        this.lockTable = new HashMap<>();
+        lockTable = new HashMap<>();
+        blockingSet = blSet;
+        abortingSet = aSet;
     }
 
     public void processOperation(dbOp op) {
-        //check if a waiting opearion is free to go.
-        for (Iterator<dbOp> i = operationsWaitingforLocks.iterator(); i.hasNext();) {
-            dbOp waitingOper = (dbOp) i.next();
-            HashSet<Integer> tidLocks = scheduleOperation(waitingOper);
-            if (tidLocks == null) {
-                i.remove();
-                waitForGraph.removeVertex(waitingOper.tID);
-            }
-        }
         HashSet<Integer> tidLocks = scheduleOperation(op);
         if (tidLocks != null && !tidLocks.isEmpty()) {
             setToWaitQueue(tidLocks, op);
-            evaluateForCycle(op);
+            checkForCycle(op);
+            checkForWaitingOperation();
         }
     }
 
@@ -74,10 +72,12 @@ public class TwoPhaseLock {
             case Commit:
                 clearAllTransactionLocks(op.tID);
                 scdm.add(op);
+                checkForWaitingOperation();
                 break;
             case Abort:
                 clearAllTransactionLocks(op.tID);
                 scdm.add(op);
+                checkForWaitingOperation();
                 break;
         }
         return tidLocks;
@@ -132,13 +132,39 @@ public class TwoPhaseLock {
         return null;
     }
 
-    private void evaluateForCycle(dbOp op) {
+    private void checkForCycle(dbOp op) {
         CycleDetector<Integer, Integer> cDetector = new CycleDetector(waitForGraph);
         if (cDetector.detectCycles()) {
-            waitForGraph.removeVertex(op.tID);
-            clearAllTransactionLocks(op.tID);
-            operationsWaitingforLocks.remove(op);
+            Set<Integer> lockedTransactions = cDetector.findCycles();
+            int youngestOP = getYoungestLockedOperation(lockedTransactions);
+            waitForGraph.removeVertex(youngestOP);
+            clearAllTransactionLocks(youngestOP);
+            removeTransaction(youngestOP);
         }
+    }
+
+    private int getYoungestLockedOperation(Set<Integer> lockedTransactions) {
+        int tdID = 0;
+        for (int lID : lockedTransactions) {
+            if (tdID < lID) {
+                tdID = lID;
+            }
+        }
+        return tdID;
+    }
+
+    private void removeTransaction(int tIDtoDelete) {
+        for (Iterator<dbOp> i = operationsWaitingforLocks.iterator(); i.hasNext();) {
+            dbOp waitingOper = (dbOp) i.next();
+            HashSet<Integer> tidLocks = scheduleOperation(waitingOper);
+
+            if (waitingOper.tID == tIDtoDelete) {
+                i.remove();
+                abortingSet.add(waitingOper.tID);
+                blockingSet.remove(waitingOper.tID);
+            }
+        }
+
     }
 
     private void setToWaitQueue(HashSet<Integer> tidLocks, dbOp op) {
@@ -178,6 +204,18 @@ public class TwoPhaseLock {
             }
         }
         return rowPrimaryKey;
+    }
+
+    private void checkForWaitingOperation() {
+        //check if a waiting opearion is free to go.
+        for (Iterator<dbOp> i = operationsWaitingforLocks.iterator(); i.hasNext();) {
+            dbOp waitingOper = (dbOp) i.next();
+            HashSet<Integer> tidLocks = scheduleOperation(waitingOper);
+            if (tidLocks == null) {
+                i.remove();
+                waitForGraph.removeVertex(waitingOper.tID);
+            }
+        }
     }
 
     public void clearAllTransactionLocks(int tID) {

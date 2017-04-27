@@ -49,7 +49,7 @@ public class myPTA
         LinkedBlockingQueue<dbOp> scdm = new LinkedBlockingQueue<>(); //queue for operations being passed from sc to dm.
         ConcurrentSkipListSet<Integer> blockingSet = new ConcurrentSkipListSet<>(); //description in Appendix (1)
         ConcurrentSkipListSet<Integer> abortingSet = new ConcurrentSkipListSet<>(); //transaction set to prematurely abort have their IDs put here
-        AtomicBoolean twopl = new AtomicBoolean(false); //we start in 2pl
+        AtomicBoolean twopl = new AtomicBoolean(true); //we start in 2pl
         
         //now intialize and start the threads
         TransactionManager tm;
@@ -61,7 +61,7 @@ public class myPTA
         {
             tm = new TransactionManager("TM", tmsc, blockingSet, scriptsDir, seed, abortingSet, twopl);            
         }
-        Scheduler sc = new Scheduler("SC", tmsc, scdm, twopl);
+        Scheduler sc = new Scheduler("SC", tmsc, scdm, twopl,abortingSet,blockingSet);
         DataManager dm = new DataManager("DM", tmsc, scdm, blockingSet,filesDir,bufferSize, abortingSet, twopl);
         
         tm.start();
