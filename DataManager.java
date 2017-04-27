@@ -529,22 +529,48 @@ class DataManager extends DBKernel implements Runnable {
     	strBuilder.append("        The percentage of MRead operation among the total number of Read, MRead and Write operation is: "+percent+"%.\n");
     	percent = (WriteOperationCounter * 100.0f) / rwnumber;
     	strBuilder.append("        The percentage of Write operation among the total number of Read, MRead and Write operation is: "+percent+"%.\n");
+    	if(AverageReadOperationResponseTimeCounter==0){
+    		strBuilder.append("The average response time of Read operation is: "+0+".\n");
+    	}else{
+    		long temp = AverageReadOperationResponseTime/AverageReadOperationResponseTimeCounter;
+        	double seconds = (double)temp / 1000000000.0;
+        	strBuilder.append("The average response time of Read operation is: "+seconds+".\n");
+    	}
     	
-    	long temp = AverageReadOperationResponseTime/AverageReadOperationResponseTimeCounter;
-    	double seconds = (double)temp / 1000000000.0;
-    	strBuilder.append("The average response time of Read operation is: "+seconds+".\n");
-    	temp = AverageMReadOperationResponseTime/AverageMReadOperationResponseTimeCounter;
-    	seconds = (double)temp / 1000000000.0;
-    	strBuilder.append("The average response time of MRead operation is: "+seconds+".\n");
-    	temp = AverageMReadOperationResponseTime/AverageMReadOperationResponseTimeCounter;
-    	seconds = (double)temp / 1000000000.0;
-    	strBuilder.append("The average response time of Write operation is: "+seconds+".\n");
-    	temp = AverageDeleteOperationResponseTime/AverageDeleteOperationResponseTimeCounter;
-    	seconds = (double)temp / 1000000000.0;
-    	strBuilder.append("The average response time of Delete operation is: "+seconds+".\n");
-    	temp = AverageTransactionExecutionTime/AverageTransactionExecutionTimeCounter;
-    	seconds = (double)temp / 1000000000.0;
-    	strBuilder.append("The average execution time for each committed transaction is: "+seconds+".\n");
+    	if(AverageMReadOperationResponseTimeCounter==0){
+    		strBuilder.append("The average response time of MRead operation is: "+0+".\n");
+    	}else{
+    		long temp = AverageMReadOperationResponseTime/AverageMReadOperationResponseTimeCounter;
+    		double seconds = (double)temp / 1000000000.0;
+        	strBuilder.append("The average response time of MRead operation is: "+seconds+".\n");
+    	}
+    	
+    	if(AverageWriteOperationResponseTimeCounter==0){
+    		strBuilder.append("The average response time of Write operation is: "+0+".\n");
+    	}else{
+    		long temp = AverageMReadOperationResponseTime/AverageWriteOperationResponseTimeCounter;
+    		double seconds = (double)temp / 1000000000.0;
+        	strBuilder.append("The average response time of Write operation is: "+seconds+".\n");
+    	}
+    	
+    	
+    	if(AverageDeleteOperationResponseTimeCounter==0){
+    		strBuilder.append("The average response time of Delete operation is: "+0+".\n");
+    	}else{
+    		long temp = AverageDeleteOperationResponseTime/AverageDeleteOperationResponseTimeCounter;
+        	double seconds = (double)temp / 1000000000.0;
+        	strBuilder.append("The average response time of Delete operation is: "+seconds+".\n");
+    	}
+    	
+    	
+    	if(AverageTransactionExecutionTimeCounter==0){
+    		strBuilder.append("The average execution time for each committed transaction is: "+0+".\n");
+    	}else{
+    		long temp = AverageTransactionExecutionTime/AverageTransactionExecutionTimeCounter;
+    		double seconds = (double)temp / 1000000000.0;
+        	strBuilder.append("The average execution time for each committed transaction is: "+seconds+".\n");
+    	}
+    	
     	
     	int numOfCommittedTransactions = 0;
     	int numOfCommittedProcesses = 0;
