@@ -49,6 +49,10 @@ public class TwoPhaseLock {
     }
 
     private HashSet<Integer> scheduleOperation(dbOp op) {
+        if (op.tID == -2) {
+            scdm.add(op);
+            return null;
+        }
         //locks that may hold the op execution
         HashSet<Integer> tidLocks = null;
         LockInfo lock = lockTable.get(op.table);
@@ -168,11 +172,17 @@ public class TwoPhaseLock {
     }
 
     private void setToWaitQueue(HashSet<Integer> tidLocks, dbOp op) {
-        addEdgeToEachTransaction(tidLocks, op.tID);
+        if (op.tID == 1) {
+            addEdgeToEachTransaction(tidLocks, op.tID);
+        }
         operationsWaitingforLocks.add(op);
     }
 
     private void addLockInfo(dbOp op, short lockType) {
+        if (op.type == 0) {
+            return;
+        }
+
         if (op.op == OperationType.Write || op.op == OperationType.Read) {
             if (!lockTable.containsKey(op.table)) {
                 LockInfo newLock = new LockInfo(op.tID, getDataRowPK(op), lockType);
