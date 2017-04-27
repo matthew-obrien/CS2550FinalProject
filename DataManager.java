@@ -60,8 +60,13 @@ class DataManager extends DBKernel implements Runnable {
     //5). the average execution time for each committed transaction.
     private long AverageTransactionExecutionTime =0;
     private long AverageTransactionExecutionTimeCounter =0;
-    private HashMap<Integer,Long> transactionRecorder;
+    private HashMap<Integer,TransactionRecorder> transactionRecorder;
+    
+    //Record the number of commended & aborted transactions/processes
+    //Record the total number of operations (only for R, M, W, and D) of commended or aborted transactions/processes
     //TODO when a table does not exist, send an abort??????
+    
+    
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
     	System.out.println(LOG_TAG+"DataManager initiating... with table directory '"+dir +"' and buffer size "+size);
     	threadName = name;
@@ -84,7 +89,7 @@ class DataManager extends DBKernel implements Runnable {
 			e.printStackTrace();
 		} 
         transactionHistory = new HashMap<Integer,HashMap<String,String>>();
-        transactionRecorder = new HashMap<Integer,Long>();
+        transactionRecorder = new HashMap<Integer,TransactionRecorder>();
     }
 
     @Override
@@ -111,7 +116,10 @@ class DataManager extends DBKernel implements Runnable {
 
                 //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
                 if(!transactionRecorder.containsKey(oper.tID)){
-                	transactionRecorder.put(oper.tID, System.currentTimeMillis());
+                	TransactionRecorder recorder= new TransactionRecorder();
+                	recorder.type=oper.type;
+                	recorder.beginTime=System.currentTimeMillis();
+                	transactionRecorder.put(oper.tID,recorder );
                 }
                 
                 //listen to the 'abSet' if there are transactions have be aborted
@@ -119,7 +127,7 @@ class DataManager extends DBKernel implements Runnable {
                 	while(!abSet.isEmpty()){
                 		int tid = abSet.pollFirst();
                 		//rollback the transaction
-                    	recoverFromAbort(tid);
+                    	recoverFromAbort(tid,1);
                 	}
                 }
                 OperationType opType = oper.op;
@@ -143,7 +151,7 @@ class DataManager extends DBKernel implements Runnable {
                 		writeDebugLog("Read:"+client.toString());
                 	}
                 	ReadOperationCounter = ReadOperationCounter+1;
-                	
+                	transactionRecorder.get(oper.tID).numberOfOperations=transactionRecorder.get(oper.tID).numberOfOperations+1;
                 	break;
                 case Write:
                 	//before image could be null, because this operation could be happening after all the previous records had been deleted
@@ -165,6 +173,7 @@ class DataManager extends DBKernel implements Runnable {
                 	writeDebugLog(oper.type +" "+oper.table+ " "+oper.value);
                 	//writeDebugLog("Inserted:"+oper.value);
                 	WriteOperationCounter = WriteOperationCounter+1;
+                	transactionRecorder.get(oper.tID).numberOfOperations=transactionRecorder.get(oper.tID).numberOfOperations+1;
                     break;
                 case MRead:
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
@@ -177,6 +186,7 @@ class DataManager extends DBKernel implements Runnable {
                     long mdisp = mets - bts ;
                     AverageMReadOperationResponseTime = AverageMReadOperationResponseTime+mdisp;
                     AverageMReadOperationResponseTimeCounter = AverageMReadOperationResponseTimeCounter+1;
+                    transactionRecorder.get(oper.tID).numberOfOperations=transactionRecorder.get(oper.tID).numberOfOperations+1;
                     break;
                 case Commit:
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
@@ -185,8 +195,10 @@ class DataManager extends DBKernel implements Runnable {
                 	}
                 	//count committed transactions
                 	CommittedTransactionCounter = CommittedTransactionCounter+1;
+                	transactionRecorder.get(oper.tID).committed=1;
+                	
                 	//calculate average committed transactions time
-                	long startedTime = transactionRecorder.get(oper.tID);
+                	long startedTime = transactionRecorder.get(oper.tID).beginTime;
                 	long cTime = System.currentTimeMillis();
                 	long dispendency = cTime-startedTime;
                 	AverageTransactionExecutionTime = AverageTransactionExecutionTime+dispendency;
@@ -196,7 +208,7 @@ class DataManager extends DBKernel implements Runnable {
                 	//write log
                 	writeTransactionLog(oper.type +" "+oper.tID+ " "+opType);
                 	//rollback the transaction
-                	recoverFromAbort(oper.tID);
+                	recoverFromAbort(oper.tID,oper.type);
                     break;
                 case Delete:
                 	//write log
@@ -210,6 +222,7 @@ class DataManager extends DBKernel implements Runnable {
                     AverageDeleteOperationResponseTime = AverageDeleteOperationResponseTime+ddisp;
                     AverageDeleteOperationResponseTimeCounter = AverageDeleteOperationResponseTimeCounter+1;
                 	writeDebugLog("Deleted:"+oper.table);
+                	transactionRecorder.get(oper.tID).numberOfOperations=transactionRecorder.get(oper.tID).numberOfOperations+1;
                     break;
                 }
                 
@@ -508,9 +521,10 @@ class DataManager extends DBKernel implements Runnable {
     /*
      * rollback all the operations in this transaction  
      */
-    void recoverFromAbort(int TID){
+    void recoverFromAbort(int TID,int type){
     	if(transactionHistory.containsKey(TID)){
     		AbortedTransactionCounter = AbortedTransactionCounter+1;
+    		transactionRecorder.get(TID).committed=0;
     		for(Entry<String,String> entry: transactionHistory.get(TID).entrySet()){
     			String key = entry.getKey();
     			String value = entry.getValue();
@@ -628,4 +642,29 @@ class HashIndex{
 	public int getHashBase(){
 		return HASH_BASE;
 	}
+	
+}
+class TransactionRecorder{
+	
+	/*
+	 * 0 process, 1 transaction
+	 */
+	int type;
+	/*
+	 * 2 no info, 1 committed, 0aborted
+	 */
+	int committed = 2;
+	
+	int numberOfOperations;
+	
+	long beginTime;
+	
+//	int numberOfCommitedTransactionOperations;
+//	int numberOfAbortedTransactionOperations;
+//	int numberOfCommitedProcessOperations;
+//	int numberOfAbortedProcessOperations;
+//	int numberOfCommitedTransactions;
+//	int numberOfAbortedTransactions;
+//	int numberOfCommitedProcesses;
+//	int numberOfAbortedProcesses;
 }
