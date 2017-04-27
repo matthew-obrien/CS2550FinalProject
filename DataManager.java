@@ -95,8 +95,8 @@ class DataManager extends DBKernel implements Runnable {
             {
             	long bts = System.currentTimeMillis();
                 dbOp oper = scdm.take();
-                ///*if(oper.op == OperationType.Begin)*/ System.out.println("\nDM has received the following operation:\n"+oper);
-                
+                /*if(oper.op == OperationType.Begin)*/ System.out.println("\nDM has received the following operation:\n"+oper);
+                //<Matthew O'Brien>
                 if(oper.tID == -2) //check for change message
                 {
                     System.out.println(LOG_TAG+"Changing modes.");
@@ -108,8 +108,7 @@ class DataManager extends DBKernel implements Runnable {
                     System.out.println(LOG_TAG+"Final operation completed. DM exiting.");
                     return;
                 }
-                
-                /**/
+
                 //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
                 if(!transactionRecorder.containsKey(oper.tID)){
                 	transactionRecorder.put(oper.tID, System.currentTimeMillis());
@@ -216,7 +215,7 @@ class DataManager extends DBKernel implements Runnable {
                 
                 
                 //This must be the last thing done.
-                blSet.remove(oper.tID);
+                blSet.remove(oper.tID); //Matthew O'Brien
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -245,8 +244,10 @@ class DataManager extends DBKernel implements Runnable {
     	for(File file:listOfFiles){
     		String name = file.getName();
     		name = name.substring(0, name.lastIndexOf("."));
+
     		System.out.println(LOG_TAG+"Loading table "+name + " into memory.");
     		tableInMemory.put(name, new ArrayList<Client>());
+
     		hashingObject.put(name, new HashIndex());
     		try {
         		ArrayList<Client> temp = new ArrayList<Client>();
@@ -298,8 +299,10 @@ class DataManager extends DBKernel implements Runnable {
     		}
     	}
     	
+
     	System.out.println(LOG_TAG+"Successuflly loaded "+tableInMemory.size()+" table(s) into memory." );
     	for(Entry<String,ArrayList<Client>> entry: tableInMemory.entrySet()){
+
     		System.out.println(LOG_TAG+"    Table "+entry.getKey()+" has "+entry.getValue().size()+" tuple(s)." );
     		System.out.println(LOG_TAG+"    The hashing structure was built and it has a maximum bucket size of "
     		+hashingObject.get(entry.getKey()).getMaximumBucketSize()+" and a hash base of "+hashingObject.get(entry.getKey()).getHashBase()+"." );
