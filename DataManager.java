@@ -99,7 +99,7 @@ class DataManager extends DBKernel implements Runnable {
         try {
             while(true)
             {
-            	long bts = System.currentTimeMillis();
+            	//long bts = System.nanoTime();
                 dbOp oper = scdm.take();
                 /*if(oper.op == OperationType.Begin)*/ System.out.println("\nDM has received the following operation:\n"+oper);
                 //<Matthew O'Brien>
@@ -119,7 +119,7 @@ class DataManager extends DBKernel implements Runnable {
                 if(!transactionRecorder.containsKey(oper.tID)){
                 	TransactionRecorder recorder= new TransactionRecorder();
                 	recorder.type=oper.type;
-                	recorder.beginTime=System.currentTimeMillis();
+                	recorder.beginTime=System.nanoTime();
                 	transactionRecorder.put(oper.tID,recorder );
                 }
                 
@@ -144,8 +144,8 @@ class DataManager extends DBKernel implements Runnable {
                 	Client client = readRecordFromBuffer(oper.type,oper.table,ID);
                 	
                 	//record average read operation response time
-                    long ets = System.currentTimeMillis();
-                    long disp = ets - bts ;
+                    long ets = System.nanoTime();
+                    long disp = ets - oper.timestamp ;
                     AverageReadOperationResponseTime = AverageReadOperationResponseTime+disp;
                     AverageReadOperationResponseTimeCounter = AverageReadOperationResponseTimeCounter+1;
                 	if(client!=null){
@@ -166,8 +166,8 @@ class DataManager extends DBKernel implements Runnable {
                 	}
                 	
                 	//record average write operation response time
-                    long wets = System.currentTimeMillis();
-                    long wdisp = wets - bts ;
+                    long wets = System.nanoTime();
+                    long wdisp = wets - oper.timestamp ;
                     AverageWriteOperationResponseTime = AverageWriteOperationResponseTime+wdisp;
                     AverageWriteOperationResponseTimeCounter=AverageWriteOperationResponseTimeCounter+1;
                 	
@@ -183,8 +183,8 @@ class DataManager extends DBKernel implements Runnable {
                 	getAllByArea(oper.type,oper.table,areaCode);
                 	MReadOperationCounter = MReadOperationCounter+1; 
                 	//record average mread operation response time
-                    long mets = System.currentTimeMillis();
-                    long mdisp = mets - bts ;
+                    long mets = System.nanoTime();
+                    long mdisp = mets - oper.timestamp ;
                     AverageMReadOperationResponseTime = AverageMReadOperationResponseTime+mdisp;
                     AverageMReadOperationResponseTimeCounter = AverageMReadOperationResponseTimeCounter+1;
                     transactionRecorder.get(oper.tID).numberOfOperations=transactionRecorder.get(oper.tID).numberOfOperations+1;
@@ -200,7 +200,7 @@ class DataManager extends DBKernel implements Runnable {
                 	
                 	//calculate average committed transactions time
                 	long startedTime = transactionRecorder.get(oper.tID).beginTime;
-                	long cTime = System.currentTimeMillis();
+                	long cTime = System.nanoTime();
                 	long dispendency = cTime-startedTime;
                 	AverageTransactionExecutionTime = AverageTransactionExecutionTime+dispendency;
                 	AverageTransactionExecutionTimeCounter = AverageTransactionExecutionTimeCounter+1;
@@ -218,8 +218,8 @@ class DataManager extends DBKernel implements Runnable {
                 	deleteAllRecords(oper.type,oper.table);
                 	
                 	//record average delete operation response time
-                    long dets = System.currentTimeMillis();
-                    long ddisp = dets - bts ;
+                    long dets = System.nanoTime();
+                    long ddisp = dets - oper.timestamp ;
                     AverageDeleteOperationResponseTime = AverageDeleteOperationResponseTime+ddisp;
                     AverageDeleteOperationResponseTimeCounter = AverageDeleteOperationResponseTimeCounter+1;
                 	writeDebugLog("Deleted:"+oper.table);
@@ -333,7 +333,7 @@ class DataManager extends DBKernel implements Runnable {
     	String bufferID = tableName+ID;
     	if(dataBuffer.containsKey(bufferID)){
     		//System.err.println(LOG_TAG+"   read operation. buffer contains "+bufferID +" with buffer size "+dataBuffer.size());
-    		dataBuffer.get(bufferID).leastedUsageTimestamp = System.currentTimeMillis();
+    		dataBuffer.get(bufferID).leastedUsageTimestamp = System.nanoTime();
     		return dataBuffer.get(bufferID);
     	}else{
     		//fetch this record from database table
@@ -341,7 +341,7 @@ class DataManager extends DBKernel implements Runnable {
     		if(index>0){
     			Client client = tableInMemory.get(tableName).get(index);
     			checkBufferStatus();
-    			client.leastedUsageTimestamp = System.currentTimeMillis();
+    			client.leastedUsageTimestamp = System.nanoTime();
     			bufferID = tableName+client.ID;
     			dataBuffer.put(bufferID, client);
     			writeDebugLog("SWAP IN T-"+tableName+ " P-"+ID+ " P-"+bufferID);
@@ -369,7 +369,7 @@ class DataManager extends DBKernel implements Runnable {
 		tclient.Phone = tupeStrs[2];
 		tclient.areaCode = Integer.parseInt(tclient.Phone.split("-")[0]);
 		tclient.tableName = tableName;
-		tclient.leastedUsageTimestamp = System.currentTimeMillis();
+		tclient.leastedUsageTimestamp = System.nanoTime();
 		
 		String bufferID = tableName+tclient.ID;
 		
@@ -729,13 +729,4 @@ class TransactionRecorder{
 	int numberOfOperations;
 	
 	long beginTime;
-	
-//	int numberOfCommitedTransactionOperations;
-//	int numberOfAbortedTransactionOperations;
-//	int numberOfCommitedProcessOperations;
-//	int numberOfAbortedProcessOperations;
-//	int numberOfCommitedTransactions;
-//	int numberOfAbortedTransactions;
-//	int numberOfCommitedProcesses;
-//	int numberOfAbortedProcesses;
 }
