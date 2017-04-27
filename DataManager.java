@@ -30,6 +30,7 @@ class DataManager extends DBKernel implements Runnable {
     private HashMap<String,HashIndex> hashingObject;
     private PrintWriter debugActionLogWriter;
     private PrintWriter transactionLogWriter;
+    private PrintWriter statisticLogWriter;
     private long transactionLogSequenceNumber = 1;
     public final static String LOG_TAG = "        DataManager: ";
     //records all the transaction history, used for rolling transaction back
@@ -39,7 +40,7 @@ class DataManager extends DBKernel implements Runnable {
     
     final static String NONE = "none";
     
-    //This is to remain you that each team should provide a log that records.  separate log file
+    //This is to remain you that each team should provide a log that records.
     //1). the number of committed transactions, 
     private int CommittedTransactionCounter = 0;
     //2). the number of aborted transactions, 
@@ -62,9 +63,8 @@ class DataManager extends DBKernel implements Runnable {
     private long AverageTransactionExecutionTimeCounter =0;
     private HashMap<Integer,TransactionRecorder> transactionRecorder;
     
-    //Record the number of commended & aborted transactions/processes
-    //Record the total number of operations (only for R, M, W, and D) of commended or aborted transactions/processes
     //TODO when a table does not exist, send an abort??????
+    
     
     
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
@@ -84,6 +84,7 @@ class DataManager extends DBKernel implements Runnable {
         try {
         	debugActionLogWriter = new PrintWriter("debugActionLog.log", "UTF-8");
         	transactionLogWriter = new PrintWriter("transactionLog.log", "UTF-8");
+        	statisticLogWriter = new PrintWriter("transactionLog.log", "UTF-8");
 		} catch (FileNotFoundException | UnsupportedEncodingException e) {
 			System.err.println("Failed to create log files.");
 			e.printStackTrace();
@@ -233,6 +234,7 @@ class DataManager extends DBKernel implements Runnable {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        writeStatisticsLog();
         closeLog();
     }
 
@@ -501,6 +503,7 @@ class DataManager extends DBKernel implements Runnable {
     void closeLog(){
     	debugActionLogWriter.close();
     	transactionLogWriter.close();
+    	statisticLogWriter.close();
     }
     /*
      * record transaction history, find a specific before image  
@@ -548,6 +551,73 @@ class DataManager extends DBKernel implements Runnable {
     void writeDebugLog(String content){
     	debugActionLogWriter.println(content);
     	debugActionLogWriter.flush();
+    }
+    //Record the number of commended & aborted transactions/processes
+    //Record the total number of operations (only for R, M, W, and D) of commended or aborted transactions/processes
+    void writeStatisticsLog(){
+    	StringBuilder strBuilder = new StringBuilder();
+    	strBuilder.append("                Database Statistics\n");
+    	strBuilder.append("The number of Committed Transaction is: "+CommittedTransactionCounter+".\n");
+    	strBuilder.append("The number of aborted Transaction is: "+AbortedTransactionCounter+".\n");
+    	int rwnumber =  ReadOperationCounter+ MReadOperationCounter +WriteOperationCounter ;
+    	strBuilder.append("The total number of Read, MRead and Write operation is: "+rwnumber+".\n");
+    	strBuilder.append("        The percentage of Read operation among the total number of Read, MRead and Write operation is: "+ReadOperationCounter/rwnumber+"%.\n");
+    	strBuilder.append("        The percentage of MRead operation among the total number of Read, MRead and Write operation is: "+MReadOperationCounter/rwnumber+"%.\n");
+    	strBuilder.append("        The percentage of Write operation among the total number of Read, MRead and Write operation is: "+WriteOperationCounter/rwnumber+"%.\n");
+    	
+    	strBuilder.append("The average response time of Read operation is: "+AverageReadOperationResponseTime/AverageReadOperationResponseTimeCounter+".\n");
+    	strBuilder.append("The average response time of MRead operation is: "+AverageMReadOperationResponseTime/AverageMReadOperationResponseTimeCounter+".\n");
+    	strBuilder.append("The average response time of Write operation is: "+AverageWriteOperationResponseTime/AverageWriteOperationResponseTimeCounter+".\n");
+    	strBuilder.append("The average response time of Delete operation is: "+AverageDeleteOperationResponseTime/AverageDeleteOperationResponseTimeCounter+".\n");
+    	strBuilder.append("The average execution time for each committed transaction is: "+AverageTransactionExecutionTime/AverageTransactionExecutionTimeCounter+".\n");
+    	
+    	int numOfCommittedTransactions = 0;
+    	int numOfCommittedProcesses = 0;
+    	int numOfAbortedTransactions = 0;
+    	int numOfAbortededProcesses = 0;
+    	
+    	int numOfCommittedTransactionOperations = 0;
+    	int numOfCommittedProcesseOperations = 0;
+    	int numOfAbortedTransactionOperations = 0;
+    	int numOfAbortededProcesseOperations = 0;
+    	for(Entry<Integer,TransactionRecorder> entry: transactionRecorder.entrySet()){
+    		//int key = entry.getKey();
+    		TransactionRecorder tr = entry.getValue();
+    		if(tr.type==1){//transaction
+    			if(tr.committed==1){//commited
+    				numOfCommittedTransactions = numOfCommittedTransactions+1;
+    				numOfCommittedTransactionOperations = numOfCommittedTransactionOperations+tr.numberOfOperations;
+    			}else if(tr.committed==0){//aborted
+    				numOfAbortedTransactions = numOfAbortedTransactions+1;
+    				numOfAbortedTransactionOperations = numOfAbortedTransactionOperations+tr.numberOfOperations;
+    			}else{//no info, for testing purpose
+    				numOfAbortedTransactions = numOfAbortedTransactions+1;
+    				numOfAbortedTransactionOperations = numOfAbortedTransactionOperations+tr.numberOfOperations;
+    			}
+    		}else{//process
+    			if(tr.committed==1){//commited
+    				numOfCommittedProcesses = numOfCommittedProcesses+1;
+    				numOfCommittedProcesseOperations = numOfCommittedProcesseOperations+tr.numberOfOperations;
+    			}else if(tr.committed==0){//aborted
+    				numOfAbortededProcesses=numOfAbortededProcesses+1;
+    				numOfAbortededProcesseOperations=numOfAbortededProcesseOperations+tr.numberOfOperations;
+    			}else{//no info, for testing purpose
+    				numOfAbortededProcesses=numOfAbortededProcesses+1;
+    				numOfAbortededProcesseOperations=numOfAbortededProcesseOperations+tr.numberOfOperations;
+    			}
+    		}
+		}
+    	strBuilder.append("The number of committed transations is: "+numOfCommittedTransactions+".\n");
+    	strBuilder.append("The number of committed processes is: "+numOfCommittedProcesses+".\n");
+    	strBuilder.append("The number of aborted transations is: "+numOfAbortedTransactions+".\n");
+    	strBuilder.append("The number of aborted processes is: "+numOfAbortededProcesses+".\n");
+    	
+    	strBuilder.append("The total number of operations (only for R, M, W, and D) of committed transactions: "+numOfCommittedTransactionOperations+".\n");
+    	strBuilder.append("The total number of operations (only for R, M, W, and D) of committed processes: "+numOfCommittedProcesseOperations+".\n");
+    	strBuilder.append("The total number of operations (only for R, M, W, and D) of aborted transactions: "+numOfAbortedTransactionOperations+".\n");
+    	strBuilder.append("The total number of operations (only for R, M, W, and D) of committed processes: "+numOfAbortededProcesseOperations+".\n");
+    	statisticLogWriter.println(strBuilder.toString());
+    	statisticLogWriter.flush();
     }
 }
 /*
@@ -651,7 +721,7 @@ class TransactionRecorder{
 	 */
 	int type;
 	/*
-	 * 2 no info, 1 committed, 0aborted
+	 * 2 no info, 1 committed, 0 aborted
 	 */
 	int committed = 2;
 	
