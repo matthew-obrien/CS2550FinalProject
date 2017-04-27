@@ -1,10 +1,12 @@
-public class dbOp //Matthew O'Brien and Henrique Potter
+public class dbOp
 {
     public int tID; //transaction or process ID. Strictly increasing starting at 0 with the first transaction.
     public short type; //0 or 1. O indicates a process, 1 indicates a transaction.
     public OperationType op; //indicates the operation. Different values listed in comment table below.
     public String table; //indicates what table the oepration acts upon, if any. Null if not applicable.
     public String value; //A string representation of the value/areacode/(t) used by the application. Null if N/A.
+    public Long timestamp; //A string representation of the value/areacode/(t) used by the application. Null if N/A.
+    
     
     dbOp(){}
     
@@ -15,6 +17,7 @@ public class dbOp //Matthew O'Brien and Henrique Potter
         this.op = op;
         this.table = table;
         this.value = value;
+        timestamp = System.nanoTime();
     }
     
     public String toString()
