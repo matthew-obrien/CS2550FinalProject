@@ -132,7 +132,7 @@ class DataManager extends DBKernel implements Runnable {
                 	transactionRecorder.put(oper.tID,recorder );
                 }
                 //check if the table exist
-                if(tableInMemory.containsKey(oper.table)){
+                if(!tableInMemory.containsKey(oper.table)){
                 	//if the table does not exist, send an ack to TM
                 	abSet.add(oper.tID);
                 }
