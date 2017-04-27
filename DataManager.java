@@ -84,7 +84,7 @@ class DataManager extends DBKernel implements Runnable {
         try {
         	debugActionLogWriter = new PrintWriter("debugActionLog.log", "UTF-8");
         	transactionLogWriter = new PrintWriter("transactionLog.log", "UTF-8");
-        	statisticLogWriter = new PrintWriter("transactionLog.log", "UTF-8");
+        	statisticLogWriter = new PrintWriter("statisticLog.log", "UTF-8");
 		} catch (FileNotFoundException | UnsupportedEncodingException e) {
 			System.err.println("Failed to create log files.");
 			e.printStackTrace();
@@ -111,6 +111,8 @@ class DataManager extends DBKernel implements Runnable {
                 }
                 if(oper.op == null)
                 {
+                	writeStatisticsLog();
+                    closeLog();
                     System.out.println(LOG_TAG+"Final operation completed. DM exiting.");
                     return;
                 }
@@ -119,7 +121,7 @@ class DataManager extends DBKernel implements Runnable {
                 if(!transactionRecorder.containsKey(oper.tID)){
                 	TransactionRecorder recorder= new TransactionRecorder();
                 	recorder.type=oper.type;
-                	recorder.beginTime=System.nanoTime();
+                	recorder.beginTime=oper.timestamp;
                 	transactionRecorder.put(oper.tID,recorder );
                 }
                 
@@ -230,13 +232,15 @@ class DataManager extends DBKernel implements Runnable {
                 
                 //This must be the last thing done.
                 blSet.remove(oper.tID); //Matthew O'Brien
+                
             }
+            
+            
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         
-        writeStatisticsLog();
-        closeLog();
+        
     }
 
     public void start() {
@@ -506,71 +510,38 @@ class DataManager extends DBKernel implements Runnable {
     	transactionLogWriter.close();
     	statisticLogWriter.close();
     }
-    /*
-     * record transaction history, find a specific before image  
-     */
-    void recordTransactionHistory(int TID, String tableNameAndPID, String beforeImage){
-    	if(transactionHistory.containsKey(TID)){//if there is a record of this transaction
-    		if(transactionHistory.get(TID).containsKey(tableNameAndPID)){
-    			//do nothing
-    		}else{//store the before image of this modified item
-    			transactionHistory.get(TID).put(tableNameAndPID, beforeImage);
-    		}
-    	}else{//if there is no such a record of this transaction
-    		HashMap<String,String> temp = new HashMap<String,String>();
-    		temp.put(tableNameAndPID, beforeImage);
-    		transactionHistory.put(TID, temp);
-    	}
-    }
-    /*
-     * rollback all the operations in this transaction  
-     */
-    void recoverFromAbort(int TID,int type){
-    	if(transactionHistory.containsKey(TID)){
-    		AbortedTransactionCounter = AbortedTransactionCounter+1;
-    		transactionRecorder.get(TID).committed=0;
-    		for(Entry<String,String> entry: transactionHistory.get(TID).entrySet()){
-    			String key = entry.getKey();
-    			String value = entry.getValue();
-    			if(!key.equals(NONE)){
-    				String strs[] = key.split("_");
-    				String record = value;
-    				record = record.replace("(","");
-    		        record = record.replace(")","");
-    		    	String[] tupeStrs = record.split(",");
-    				Client tclient = new Client();
-    				tclient.ID = Integer.parseInt(tupeStrs[0]);
-    				tclient.ClientName = tupeStrs[1];
-    				tclient.Phone = tupeStrs[2];
-    				tclient.areaCode = Integer.parseInt(tclient.Phone.split("-")[0]);
-    				tclient.tableName = strs[0];
-    				tableInMemory.get(tclient.tableName).set(tclient.ID , tclient);
-    			}
-    		}
-    	}
-    }
-    void writeDebugLog(String content){
-    	debugActionLogWriter.println(content);
-    	debugActionLogWriter.flush();
-    }
-    //Record the number of commended & aborted transactions/processes
+  //Record the number of commended & aborted transactions/processes
     //Record the total number of operations (only for R, M, W, and D) of commended or aborted transactions/processes
     void writeStatisticsLog(){
     	StringBuilder strBuilder = new StringBuilder();
     	strBuilder.append("                Database Statistics\n");
     	strBuilder.append("The number of Committed Transaction is: "+CommittedTransactionCounter+".\n");
     	strBuilder.append("The number of aborted Transaction is: "+AbortedTransactionCounter+".\n");
-    	int rwnumber =  ReadOperationCounter+ MReadOperationCounter +WriteOperationCounter ;
+    	int rwnumber = 1;
+    	rwnumber =  ReadOperationCounter+ MReadOperationCounter +WriteOperationCounter ;
+    	float percent = (ReadOperationCounter * 100.0f) / rwnumber;
     	strBuilder.append("The total number of Read, MRead and Write operation is: "+rwnumber+".\n");
-    	strBuilder.append("        The percentage of Read operation among the total number of Read, MRead and Write operation is: "+ReadOperationCounter/rwnumber+"%.\n");
-    	strBuilder.append("        The percentage of MRead operation among the total number of Read, MRead and Write operation is: "+MReadOperationCounter/rwnumber+"%.\n");
-    	strBuilder.append("        The percentage of Write operation among the total number of Read, MRead and Write operation is: "+WriteOperationCounter/rwnumber+"%.\n");
+    	strBuilder.append("        The percentage of Read operation among the total number of Read, MRead and Write operation is: "+percent+"%.\n");
+    	percent = (MReadOperationCounter * 100.0f) / rwnumber;
+    	strBuilder.append("        The percentage of MRead operation among the total number of Read, MRead and Write operation is: "+percent+"%.\n");
+    	percent = (WriteOperationCounter * 100.0f) / rwnumber;
+    	strBuilder.append("        The percentage of Write operation among the total number of Read, MRead and Write operation is: "+percent+"%.\n");
     	
-    	strBuilder.append("The average response time of Read operation is: "+AverageReadOperationResponseTime/AverageReadOperationResponseTimeCounter+".\n");
-    	strBuilder.append("The average response time of MRead operation is: "+AverageMReadOperationResponseTime/AverageMReadOperationResponseTimeCounter+".\n");
-    	strBuilder.append("The average response time of Write operation is: "+AverageWriteOperationResponseTime/AverageWriteOperationResponseTimeCounter+".\n");
-    	strBuilder.append("The average response time of Delete operation is: "+AverageDeleteOperationResponseTime/AverageDeleteOperationResponseTimeCounter+".\n");
-    	strBuilder.append("The average execution time for each committed transaction is: "+AverageTransactionExecutionTime/AverageTransactionExecutionTimeCounter+".\n");
+    	long temp = AverageReadOperationResponseTime/AverageReadOperationResponseTimeCounter;
+    	double seconds = (double)temp / 1000000000.0;
+    	strBuilder.append("The average response time of Read operation is: "+seconds+".\n");
+    	temp = AverageMReadOperationResponseTime/AverageMReadOperationResponseTimeCounter;
+    	seconds = (double)temp / 1000000000.0;
+    	strBuilder.append("The average response time of MRead operation is: "+seconds+".\n");
+    	temp = AverageMReadOperationResponseTime/AverageMReadOperationResponseTimeCounter;
+    	seconds = (double)temp / 1000000000.0;
+    	strBuilder.append("The average response time of Write operation is: "+seconds+".\n");
+    	temp = AverageDeleteOperationResponseTime/AverageDeleteOperationResponseTimeCounter;
+    	seconds = (double)temp / 1000000000.0;
+    	strBuilder.append("The average response time of Delete operation is: "+seconds+".\n");
+    	temp = AverageTransactionExecutionTime/AverageTransactionExecutionTimeCounter;
+    	seconds = (double)temp / 1000000000.0;
+    	strBuilder.append("The average execution time for each committed transaction is: "+seconds+".\n");
     	
     	int numOfCommittedTransactions = 0;
     	int numOfCommittedProcesses = 0;
@@ -617,9 +588,67 @@ class DataManager extends DBKernel implements Runnable {
     	strBuilder.append("The total number of operations (only for R, M, W, and D) of committed processes: "+numOfCommittedProcesseOperations+".\n");
     	strBuilder.append("The total number of operations (only for R, M, W, and D) of aborted transactions: "+numOfAbortedTransactionOperations+".\n");
     	strBuilder.append("The total number of operations (only for R, M, W, and D) of committed processes: "+numOfAbortededProcesseOperations+".\n");
+    	System.out.println(strBuilder.toString());
     	statisticLogWriter.println(strBuilder.toString());
     	statisticLogWriter.flush();
     }
+    /*
+     * record transaction history, find a specific before image  
+     */
+    void recordTransactionHistory(int TID, String tableNameAndPID, String beforeImage){
+    	if(transactionHistory.containsKey(TID)){//if there is a record of this transaction
+    		if(transactionHistory.get(TID).containsKey(tableNameAndPID)){
+    			//do nothing
+    		}else{//store the before image of this modified item
+    			transactionHistory.get(TID).put(tableNameAndPID, beforeImage);
+    		}
+    	}else{//if there is no such a record of this transaction
+    		HashMap<String,String> temp = new HashMap<String,String>();
+    		temp.put(tableNameAndPID, beforeImage);
+    		transactionHistory.put(TID, temp);
+    	}
+    }
+    /*
+     * rollback all the operations in this transaction  
+     */
+    void recoverFromAbort(int TID,int type){
+    	if(transactionHistory.containsKey(TID)){
+    		AbortedTransactionCounter = AbortedTransactionCounter+1;
+    		transactionRecorder.get(TID).committed=0;
+    		for(Entry<String,String> entry: transactionHistory.get(TID).entrySet()){
+    			String key = entry.getKey();
+    			String value = entry.getValue();
+    			if(!key.equals(NONE)){
+    				String strs[] = key.split("_");
+    				String record = value;
+    				record = record.replace("(","");
+    		        record = record.replace(")","");
+    		    	String[] tupeStrs = record.split(",");
+    				Client tclient = new Client();
+    				tclient.ID = Integer.parseInt(tupeStrs[0]);
+    				tclient.ClientName = tupeStrs[1];
+    				tclient.Phone = tupeStrs[2];
+    				tclient.areaCode = Integer.parseInt(tclient.Phone.split("-")[0]);
+    				tclient.tableName = strs[0];
+    				
+    				
+    				if(tableInMemory.get(tclient.tableName).size()<=tclient.ID){
+      			    	int tsize = tableInMemory.get(tclient.tableName).size();
+      			    	//System.out.println(LOG_TAG+"   "+tsize +".."+tclient.ID);
+      			    	for(int i=tsize;i<=tclient.ID;i++){
+      			    		tableInMemory.get(tclient.tableName).add(i, null);
+      			    	}
+      			    }
+    				tableInMemory.get(tclient.tableName).set(tclient.ID , tclient);
+    			}
+    		}
+    	}
+    }
+    void writeDebugLog(String content){
+    	debugActionLogWriter.println(content);
+    	debugActionLogWriter.flush();
+    }
+    
 }
 /*
  * Table schema.    
@@ -692,11 +721,11 @@ class HashIndex{
 				if(overflowBucket.containsKey(ID)){
 					index = overflowBucket.get(ID);
 				}else{
-					System.err.println(DataManager.LOG_TAG+"Hashing structure does not contain the input client ID -> "+ID);
+					System.out.println(DataManager.LOG_TAG+"Hashing structure does not contain the input client ID -> "+ID);
 				}
 			}
 		}else{
-			System.err.println(DataManager.LOG_TAG+"Hashing structure does not contain the hash key -> "+key);
+			System.out.println(DataManager.LOG_TAG+"Hashing structure does not contain the hash key -> "+key);
 		}
 		return index;
 	}
