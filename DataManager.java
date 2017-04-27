@@ -134,7 +134,10 @@ class DataManager extends DBKernel implements Runnable {
                 //check if the table exist
                 if(!tableInMemory.containsKey(oper.table)){
                 	//if the table does not exist, send an ack to TM
-                	abSet.add(oper.tID);
+                	if(oper.op==OperationType.Read || oper.op==OperationType.MRead){
+                		abSet.add(oper.tID);
+                    	System.err.println(LOG_TAG+"The table does not exist.");
+                	}
                 }
                 OperationType opType = oper.op;
                 switch (opType) {
