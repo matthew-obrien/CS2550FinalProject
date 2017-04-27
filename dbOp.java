@@ -5,7 +5,7 @@ public class dbOp
     public OperationType op; //indicates the operation. Different values listed in comment table below.
     public String table; //indicates what table the oepration acts upon, if any. Null if not applicable.
     public String value; //A string representation of the value/areacode/(t) used by the application. Null if N/A.
-    public Long timestamp; //A string representation of the value/areacode/(t) used by the application. Null if N/A.
+    public Long timestamp = System.nanoTime();; //A string representation of the value/areacode/(t) used by the application. Null if N/A.
     
     
     dbOp(){}
