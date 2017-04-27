@@ -115,13 +115,6 @@ class DataManager extends DBKernel implements Runnable {
                     return;
                 }
 
-                //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
-                if(!transactionRecorder.containsKey(oper.tID)){
-                	TransactionRecorder recorder= new TransactionRecorder();
-                	recorder.type=oper.type;
-                	recorder.beginTime=oper.timestamp;
-                	transactionRecorder.put(oper.tID,recorder );
-                }
                 
                 //listen to the 'abSet' if there are transactions have be aborted
                 if(abSet.size()>0){
@@ -130,6 +123,18 @@ class DataManager extends DBKernel implements Runnable {
                 		//rollback the transaction
                     	recoverFromAbort(tid,1);
                 	}
+                }
+              //System.out.println(LOG_TAG+"Incoming operation request "+oper.op);
+                if(!transactionRecorder.containsKey(oper.tID)){
+                	TransactionRecorder recorder= new TransactionRecorder();
+                	recorder.type=oper.type;
+                	recorder.beginTime=oper.timestamp;
+                	transactionRecorder.put(oper.tID,recorder );
+                }
+                //check if the table exist
+                if(tableInMemory.containsKey(oper.table)){
+                	//if the table does not exist, send an ack to TM
+                	abSet.add(oper.tID);
                 }
                 OperationType opType = oper.op;
                 switch (opType) {
