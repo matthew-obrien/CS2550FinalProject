@@ -234,6 +234,7 @@ class DataManager extends DBKernel implements Runnable {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        
         writeStatisticsLog();
         closeLog();
     }
