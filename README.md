@@ -19,7 +19,8 @@ java myPTA scripts tables 100
 ```
 ## Contributing
 
-Matthew has been working on the transaction manager and scheduler. 
+* **Matthew** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
+ has been working on the transaction manager and scheduler. 
 Henrique has been working on the scheduler. 
 Zhenjiang has been working on the data manager.
 
