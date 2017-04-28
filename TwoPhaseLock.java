@@ -1,4 +1,3 @@
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -168,7 +167,6 @@ public class TwoPhaseLock {
                 blockingSet.remove(waitingOper.tID);
             }
         }
-
     }
 
     private void setToWaitQueue(HashSet<Integer> tidLocks, dbOp op) {
@@ -180,6 +178,7 @@ public class TwoPhaseLock {
 
     private void addLockInfo(dbOp op, short lockType) {
         if (op.type == 0) {
+            //scdm.add(op);
             return;
         }
 
@@ -203,7 +202,7 @@ public class TwoPhaseLock {
 
     private int getDataRowPK(dbOp op) {
         int rowPrimaryKey = 0;
-        if (!op.value.isEmpty()) {
+        if (op.value!=null && !op.value.isEmpty()) {
             String writeContent = op.value;
             if (op.op == OperationType.Read) {
                 rowPrimaryKey = Integer.parseInt(writeContent);

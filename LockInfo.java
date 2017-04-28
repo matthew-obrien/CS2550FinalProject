@@ -55,13 +55,14 @@ public final class LockInfo {
             }
         }
         RowLock dataRowLock = dataRowsLock.get(rowPK);
-        if (dataRowLock != null && dataRowLock.transactionsSharedLock.contains(tID)) {
+        if (dataRowLock != null && !dataRowLock.transactionsSharedLock.contains(tID)) {
             transactions.addAll(dataRowLock.transactionsSharedLock);
         }
         return transactions;
     }
 
     public HashSet<Integer> isFreeForRead(int rowPK, int tID) {
+       
         HashSet<Integer> transactions = new HashSet<>();
         for (Map.Entry<Integer, Short> entry : sharedLockTIDs.entrySet()) {
             Integer key = entry.getKey();
@@ -74,7 +75,7 @@ public final class LockInfo {
         }
 
         RowLock dataRowLock = dataRowsLock.get(rowPK);
-        if (dataRowLock != null && dataRowLock.transactionsSharedLock.contains(tID) && dataRowLock.rowLockType == EXCLUSIVE_ROW_LOCK) {
+        if (dataRowLock != null && !dataRowLock.transactionsSharedLock.contains(tID) && dataRowLock.rowLockType == EXCLUSIVE_ROW_LOCK) {
             transactions.addAll(dataRowLock.transactionsSharedLock);
         }
         return transactions;

@@ -236,18 +236,12 @@ class DataManager extends DBKernel implements Runnable {
                     break;
                 }
                 
-                
                 //This must be the last thing done.
                 blSet.remove(oper.tID); //Matthew O'Brien
-                
             }
-            
-            
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        
-        
     }
 
     public void start() {
