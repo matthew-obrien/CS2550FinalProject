@@ -123,6 +123,10 @@ class TransactionManager extends DBKernel implements Runnable {
                     tmsc.add(oper);
                     if (opers.isEmpty()) {
                         loadedScripts.remove(i); //remove the list if it is now empty so it isn't chosen again.
+                        for(int j = i; j < tIDMappings.length-1; j++)
+                        {
+                            tIDMappings[j] = tIDMappings[j+1]; //if a list is removed, make sure the mappings are still right.
+                        }
                     }
                 } else {
                     //round robin
@@ -178,6 +182,10 @@ class TransactionManager extends DBKernel implements Runnable {
                     tmsc.add(oper);
                     if (opers.isEmpty()) {
                         loadedScripts.remove(i);
+                        for(int j = i; j < tIDMappings.length-1; j++)
+                        {
+                            tIDMappings[j] = tIDMappings[j+1]; //if a list is removed, make sure the mappings are still right.
+                        }
                         if (i == loadedScripts.size()) {
                             i = 0; //if we just removed the last list in the list, set i to 0
                         }
