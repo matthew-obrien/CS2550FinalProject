@@ -111,6 +111,7 @@ class DataManager extends DBKernel implements Runnable {
                 {
                 	writeStatisticsLog();
                     closeLog();
+                    writeTableBack();
                     System.out.println(LOG_TAG+"Final operation completed. DM exiting.");
                     return;
                 }
@@ -679,7 +680,23 @@ class DataManager extends DBKernel implements Runnable {
     	debugActionLogWriter.println(content);
     	debugActionLogWriter.flush();
     }
-    
+    void writeTableBack(){
+    	for(Entry<String,ArrayList<Client>> entry: tableInMemory.entrySet()){
+    		try {
+    			String name = entry.getKey();
+    			ArrayList<Client> list = entry.getValue();
+    			PrintWriter writer = new PrintWriter(name+"_copy.txt", "UTF-8");
+    			for(Client client: list){
+    				writer.println(client.ID+","+client.ClientName+","+client.Phone);
+    				writer.flush();
+    			}
+    			writer.close();
+    		} catch (FileNotFoundException | UnsupportedEncodingException e) {
+    			System.err.println("Failed to create log files.");
+    			e.printStackTrace();
+    		}
+    	}
+    }
 }
 /*
  * Table schema.    
