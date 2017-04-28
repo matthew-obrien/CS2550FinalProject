@@ -10,8 +10,10 @@ To compile the project, please use the following command line:\\
 ## Usage
 
 To run the project, we can use three or four arguments. The first argument is used for specifying the script file directory. The second argument is used for specifying the table script directory. The third is used for specifying the buffer size. The fourth argument is optional, used for specifying the seed of transaction randomized selection. The following is an example:\\
-java myPTA scripts tables 100
 
+```
+java myPTA scripts tables 100
+```
 ## Contributing
 
 Matthew has been working on the transaction manager and scheduler. 
