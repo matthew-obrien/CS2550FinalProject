@@ -22,6 +22,7 @@ class DataManager extends DBKernel implements Runnable {
     final private int bSize;
     //data structure that stores testing table content
     private HashMap <String,ArrayList<Client>> tableInMemory;
+    private HashMap <String,PrintWriter> tableInMemoryWriter;
     //data buffer object, a hash map with key being TableName+ID and value being tuple
     private HashMap<String,Client> dataBuffer;
     private HashMap<String,HashIndex> hashingObject;
@@ -60,9 +61,7 @@ class DataManager extends DBKernel implements Runnable {
     private long AverageTransactionExecutionTimeCounter =0;
     private HashMap<Integer,TransactionRecorder> transactionRecorder;
     
-    //TODO when a table does not exist, send an abort??????
-    
-    
+    //TODO when a table does not exist, send an abort?????
     
     DataManager(String name, LinkedBlockingQueue<dbOp> q1, LinkedBlockingQueue<dbOp> q2, ConcurrentSkipListSet<Integer> blSetIn, String dir, int size, ConcurrentSkipListSet<Integer> abSetIn, AtomicBoolean twoplin) {
     	System.out.println(LOG_TAG+"DataManager initiating... with table directory '"+dir +"' and buffer size "+size);
@@ -74,6 +73,7 @@ class DataManager extends DBKernel implements Runnable {
         filesDir = dir;
         bSize = size;
         tableInMemory = new HashMap <String,ArrayList<Client>>();
+        tableInMemoryWriter = new HashMap <String,PrintWriter>();
         hashingObject = new HashMap<String,HashIndex>();
         loadTableIntoMemory(filesDir);
         dataBuffer = new HashMap<String,Client>();
@@ -116,7 +116,7 @@ class DataManager extends DBKernel implements Runnable {
                 {
                 	writeStatisticsLog();
                     closeLog();
-                    //writeTableBack();
+                    writeTableBack();
                     System.out.println(LOG_TAG+"Final operation completed. DM exiting.");
                     return;
                 }
@@ -271,10 +271,12 @@ class DataManager extends DBKernel implements Runnable {
     		name = name.substring(0, name.lastIndexOf("."));
 
     		System.out.println(LOG_TAG+"Loading table "+name + " into memory.");
-    		tableInMemory.put(name, new ArrayList<Client>());
-
-    		hashingObject.put(name, new HashIndex());
+    		
     		try {
+    			tableInMemory.put(name, new ArrayList<Client>());
+        		tableInMemoryWriter.put(name, new PrintWriter(name+".copy", "UTF-8"));
+
+        		hashingObject.put(name, new HashIndex());
         		ArrayList<Client> temp = new ArrayList<Client>();
         		int idCounter = 0;
         		//open the table script file
@@ -396,6 +398,18 @@ class DataManager extends DBKernel implements Runnable {
 			dataBuffer.put(bufferID, tclient);
     	}else{
     		//fetch this record from database table
+    		
+    		if(!tableInMemory.containsKey(tableName)){
+    			tableInMemory.put(tableName, new ArrayList<Client>());
+    			hashingObject.put(tableName, new HashIndex());
+    			try {
+					tableInMemoryWriter.put(tableName, new PrintWriter(tableName+".copy", "UTF-8"));
+				} catch (FileNotFoundException e) {
+					e.printStackTrace();
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				}
+    		}
     		int index = hashingObject.get(tableName).getIndex(tclient.ID);
     		if(index>0){
     			//use record in database as before image
@@ -492,8 +506,9 @@ class DataManager extends DBKernel implements Runnable {
     		}
     		if(dataBuffer.get(key).isDirty){//if dirty, flush the update to database
     			tableInMemory.get(dataBuffer.get(key).tableName).set(dataBuffer.get(key).ID, dataBuffer.get(key));
+    			writeDebugLog("SWAP OUT T-"+dataBuffer.get(key).tableName+ " P-"+dataBuffer.get(key).ID+ " P-"+key);
     		}
-    		writeDebugLog("SWAP OUT T-"+dataBuffer.get(key).tableName+ " P-"+dataBuffer.get(key).ID+ " P-"+key);
+    		
     		//remove the least recently used
     		dataBuffer.remove(key);
     		
@@ -679,12 +694,14 @@ class DataManager extends DBKernel implements Runnable {
     	debugActionLogWriter.flush();
     }
     void writeTableBack(){
+    	System.err.println(" create log files.");
     	for(Entry<String,ArrayList<Client>> entry: tableInMemory.entrySet()){
     		try {
     			if(entry!=null && entry.getValue()!=null){
     				String name = entry.getKey();
         			ArrayList<Client> list = entry.getValue();
-        			PrintWriter writer = new PrintWriter(name+"_copy.txt", "UTF-8");
+        			System.err.println(" create log files.");
+        			PrintWriter writer = tableInMemoryWriter.get(name);
         			for(Client client: list){
         				if(client!=null){
         					writer.println(client.ID+","+client.ClientName+","+client.Phone);
@@ -695,7 +712,7 @@ class DataManager extends DBKernel implements Runnable {
         			writer.close();
     			}
     			
-    		} catch (FileNotFoundException | UnsupportedEncodingException e) {
+    		} catch (Exception e) {
     			System.err.println("Failed to create log files.");
     			e.printStackTrace();
     		}
