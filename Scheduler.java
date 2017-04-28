@@ -156,6 +156,10 @@ class Scheduler extends DBKernel implements Runnable {
                         break;
                     }
                 }
+                if(aborted.contains(oper.tID))
+                {
+                    break;
+                }
                 //then the standard checks
                 readSet = readSch.get(oper.tID);
                 writeSet = writeSch.get(oper.tID);
@@ -168,6 +172,16 @@ class Scheduler extends DBKernel implements Runnable {
                     for (String theirItem : theirSet) {
                         String[] bits = theirItem.split(",");
                         String table = bits[0];
+                        if(readSet == null)
+                        {
+                            System.out.println("readset");
+                            System.exit(0);
+                        }
+                        if(writeSet == null)
+                        {
+                            System.out.println("writeset");
+                            System.exit(0);
+                        }
                         if (readSet.contains(table) || writeSet.contains(table) || readSet.contains(theirItem) || writeSet.contains(theirItem))//if it's in our list, or the table is in our list, bad things
                         {
                             dbOp newoper = new dbOp(oper.tID, oper.type, OperationType.Abort, null, null);
@@ -179,6 +193,10 @@ class Scheduler extends DBKernel implements Runnable {
                             break;
                         }
                     }
+                }
+                if(aborted.contains(oper.tID))
+                {
+                    break;
                 }
                 for (Integer key : writeSch.keySet())//for each other transaction's write lsit
                 {
@@ -202,7 +220,10 @@ class Scheduler extends DBKernel implements Runnable {
                         }
                     }
                 }
-
+                if(aborted.contains(oper.tID))
+                {
+                    break;
+                }
                 //if we're still alive here, commit
                 readSch.remove(oper.tID);
                 writeSch.remove(oper.tID);
