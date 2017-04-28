@@ -1,4 +1,3 @@
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -235,7 +234,6 @@ class DataManager extends DBKernel implements Runnable {
                 	transactionRecorder.get(oper.tID).numberOfOperations=transactionRecorder.get(oper.tID).numberOfOperations+1;
                     break;
                 }
-                
                 //This must be the last thing done.
                 blSet.remove(oper.tID); //Matthew O'Brien
             }
