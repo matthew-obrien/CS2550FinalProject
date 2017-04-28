@@ -40,7 +40,7 @@ class TransactionManager extends DBKernel implements Runnable {
         twopl = twoplin;
         reads = new boolean[15];
         for (int i = 0; i < 15; i++) {
-            reads[i] = true;
+            reads[i] = false;
         }
     }
 
