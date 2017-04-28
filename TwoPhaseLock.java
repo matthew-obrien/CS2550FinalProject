@@ -130,7 +130,7 @@ public class TwoPhaseLock {
                 return tidLocks;
             }
         }
-        addLockInfo(op, SHARED_TABLE_LOCK);
+        addLockInfo(op, EXCLUSIVE_TABLE_LOCK);
         scdm.add(op);
         return null;
     }
