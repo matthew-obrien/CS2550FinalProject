@@ -102,8 +102,14 @@ class DataManager extends DBKernel implements Runnable {
                 //<Matthew O'Brien>
                 if(oper.tID == -2) //check for change message
                 {
+                	
                     System.out.println(LOG_TAG+"Changing modes.");
                     twopl.set(!twopl.get());
+                    if(twopl.get()){
+                    	writeDebugLog("switch from OCC to 2PL");
+                    }else{
+                    	writeDebugLog("switch from 2PL to OCC");
+                    }
                     continue;
                 }
                 if(oper.op == null)
