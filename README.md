@@ -5,7 +5,10 @@ There are three components in our project: a transaction manager, a scheduler, a
 ## Compiling the project
 
 To compile the project, please use the following command line:\\
-      javac -cp ".;jgraph-5.13.0.0.jar;jgraphx-2.0.0.1.jar;jgrapht-core-1.0.1.jar" myPTA.java
+      
+```
+javac -cp ".;jgraph-5.13.0.0.jar;jgraphx-2.0.0.1.jar;jgrapht-core-1.0.1.jar" myPTA.java
+```
 
 ## Usage
 
