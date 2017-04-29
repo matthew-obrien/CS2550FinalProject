@@ -192,6 +192,10 @@ class Scheduler extends DBKernel implements Runnable {
                             System.out.println("Transaction " + oper.tID + " aborting. :(");
                             break;
                         }
+                        if(aborted.contains(oper.tID))
+                        {
+                            break;
+                        }
                     }
                 }
                 if(aborted.contains(oper.tID))
@@ -218,6 +222,10 @@ class Scheduler extends DBKernel implements Runnable {
                             System.out.println("Transaction " + oper.tID + " aborting. :(");
                             break;
                         }
+                    }
+                    if(aborted.contains(oper.tID))
+                    {
+                        break;
                     }
                 }
                 if(aborted.contains(oper.tID))

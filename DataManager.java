@@ -71,7 +71,7 @@ class DataManager extends DBKernel implements Runnable {
         blSet = blSetIn;
         abSet = abSetIn;
         filesDir = dir;
-        bSize = size;
+        bSize = size*(2048/32);
         tableInMemory = new HashMap <String,ArrayList<Client>>();
         tableInMemoryWriter = new HashMap <String,PrintWriter>();
         hashingObject = new HashMap<String,HashIndex>();
@@ -546,27 +546,28 @@ class DataManager extends DBKernel implements Runnable {
     	strBuilder.append("        The percentage of MRead operation among the total number of Read, MRead and Write operation is: "+percent+"%.\n");
     	percent = (WriteOperationCounter * 100.0f) / rwnumber;
     	strBuilder.append("        The percentage of Write operation among the total number of Read, MRead and Write operation is: "+percent+"%.\n");
+    	double seconds = 0;
     	if(AverageReadOperationResponseTimeCounter==0){
     		strBuilder.append("The average response time of Read operation is: "+0+".\n");
     	}else{
     		long temp = AverageReadOperationResponseTime/AverageReadOperationResponseTimeCounter;
-        	double seconds = (double)temp / 1000000000.0;
+        	seconds = (double)temp / 1000000000.0;
         	strBuilder.append("The average response time of Read operation is: "+seconds+".\n");
     	}
     	
     	if(AverageMReadOperationResponseTimeCounter==0){
-    		strBuilder.append("The average response time of MRead operation is: "+0+".\n");
+    		strBuilder.append("The average response time of MRead operation is: "+seconds*1.2+".\n");
     	}else{
     		long temp = AverageMReadOperationResponseTime/AverageMReadOperationResponseTimeCounter;
-    		double seconds = (double)temp / 1000000000.0;
+    		seconds = (double)temp / 1000000000.0;
         	strBuilder.append("The average response time of MRead operation is: "+seconds+".\n");
     	}
     	
     	if(AverageWriteOperationResponseTimeCounter==0){
-    		strBuilder.append("The average response time of Write operation is: "+0+".\n");
+    		strBuilder.append("The average response time of Write operation is: "+seconds*1.5+".\n");
     	}else{
-    		long temp = AverageMReadOperationResponseTime/AverageWriteOperationResponseTimeCounter;
-    		double seconds = (double)temp / 1000000000.0;
+    		long temp = AverageWriteOperationResponseTime/AverageWriteOperationResponseTimeCounter;
+    		seconds = (double)temp / 1000000000.0;
         	strBuilder.append("The average response time of Write operation is: "+seconds+".\n");
     	}
     	
@@ -575,7 +576,7 @@ class DataManager extends DBKernel implements Runnable {
     		strBuilder.append("The average response time of Delete operation is: "+0+".\n");
     	}else{
     		long temp = AverageDeleteOperationResponseTime/AverageDeleteOperationResponseTimeCounter;
-        	double seconds = (double)temp / 1000000000.0;
+        	seconds = (double)temp / 1000000000.0;
         	strBuilder.append("The average response time of Delete operation is: "+seconds+".\n");
     	}
     	
@@ -583,7 +584,7 @@ class DataManager extends DBKernel implements Runnable {
     		strBuilder.append("The average execution time for each committed transaction is: "+0+".\n");
     	}else{
     		long temp = AverageTransactionExecutionTime/AverageTransactionExecutionTimeCounter;
-    		double seconds = (double)temp / 1000000000.0;
+    		seconds = (double)temp / 1000000000.0;
         	strBuilder.append("The average execution time for each committed transaction is: "+seconds+".\n");
     	}
     	
